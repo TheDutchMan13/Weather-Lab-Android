@@ -143,8 +143,9 @@ fun WeatherLabTheme(scheme: Scheme, content: @Composable () -> Unit) {
 @Composable
 fun navItemColors() = NavigationBarItemDefaults.colors(
     indicatorColor = C.cyan.copy(alpha = 50 / 255f),
-    selectedIconColor = C.text,
+    // Same as the phone app: the selected icon is black on the tinted pill, everything else is near white.
+    selectedIconColor = Color.Black,
     selectedTextColor = C.text,
-    unselectedIconColor = C.muted,
-    unselectedTextColor = C.muted,
+    unselectedIconColor = C.text,
+    unselectedTextColor = C.text,
 )

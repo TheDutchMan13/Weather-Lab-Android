@@ -266,21 +266,21 @@ private fun Dashboard(s: Snapshot) {
     Panel {
         Column {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(if (temp == null) "--°" else "${Math.round(temp.value)}°", style = T.hero, color = C.text)
+                Text(if (temp == null) "--°" else "${one(temp.value)}°", style = T.hero, color = C.text)
                 Spacer(Modifier.width(12.dp))
                 WxIcon(kind, size = 72.dp)
             }
             if (ageMin != null) {
                 Text(
-                    ageText(ageMin), fontSize = 12.sp,
+                    updatedAgo(age ?: 0), fontSize = 12.sp,
                     color = if (ageMin > 10) C.warn else C.muted,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Text(s.status.station.ifBlank { "Your station" }, fontSize = 17.sp, fontWeight = FontWeight.W700, color = C.text)
+            Text(conditionWord(kind), fontSize = 17.sp, fontWeight = FontWeight.W700, color = C.text)
             Spacer(Modifier.height(8.dp))
-            Text("Feels like ${deg(v["feelslikef"])} · Dew point ${deg(v["dewpointf"])}", style = T.body, color = C.muted)
+            Text("Feels like ${deg1(v["feelslikef"])} · Dew point ${deg1(v["dewpointf"])}", style = T.body, color = C.muted)
             Text("Today: high ${deg(s.today.high)} · low ${deg(s.today.low)}", style = T.body, color = C.muted)
         }
     }
@@ -435,6 +435,30 @@ private fun SettingsPage(
 
 private fun deg(m: Measure?): String = if (m == null) "--°" else "${Math.round(m.value)}°"
 
+private fun one(v: Double): String = "%.1f".format(v)
+
+private fun deg1(m: Measure?): String = if (m == null) "--°" else "${one(m.value)}°"
+
+/** The short word under the temperature. The API sends no forecast text, so it follows the sky icon. */
+private fun conditionWord(kind: String): String = when (kind) {
+    "rain" -> "Rain"
+    "wind" -> "Windy"
+    "night" -> "Clear"
+    else -> "Sunny"
+}
+
+/** Same wording as the phone app: "Updated 2 h 4 min ago". */
+private fun updatedAgo(seconds: Int): String {
+    val s = seconds.coerceAtLeast(0)
+    if (s < 90) return "Updated $s sec ago"
+    val m = Math.round(s / 60.0).toInt()
+    if (m < 60) return "Updated $m min ago"
+    val h = m / 60
+    val r = m % 60
+    if (h < 48) return "Updated $h h${if (r == 0) "" else " $r min"} ago"
+    return "Updated ${h / 24} d ago"
+}
+
 private fun ageText(minutes: Int): String = when {
     minutes < 1 -> "updated just now"
     minutes < 60 -> "updated $minutes min ago"
@@ -446,7 +470,7 @@ private fun reading(key: String, m: Measure): String {
     val decimals = when (key) {
         "dailyrainin", "rainratein" -> if (m.unit.contains("mm")) 1 else 2
         "baromrelin" -> if (m.unit.contains("hPa") || m.unit.contains("mb")) 1 else 2
-        "uv" -> 1
+        "uv", "windspeedmph", "windgustmph" -> 1
         else -> 0
     }
     val num = if (decimals == 0) Math.round(m.value).toString() else "%.${decimals}f".format(m.value)

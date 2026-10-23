@@ -28,8 +28,15 @@ jobs:
       # GitHub's Ubuntu image already has the Android SDK installed (ANDROID_HOME).
       - name: Install the platform and build tools
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "SDK folder: $SDK"
+          ls "$SDK" || true
+          SM="$(command -v sdkmanager || true)"
+          if [ -z "$SM" ]; then SM="$(find "$SDK" -name sdkmanager -path '*bin*' 2>/dev/null | head -1)"; fi
+          echo "sdkmanager: $SM"
+          if [ -z "$SM" ]; then echo "No sdkmanager found on this runner."; exit 1; fi
+          yes | "$SM" --licenses > /dev/null || true
+          "$SM" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4

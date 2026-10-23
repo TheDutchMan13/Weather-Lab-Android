@@ -249,6 +249,15 @@ private fun Dashboard(s: Snapshot) {
     val age = s.current.ageSeconds ?: s.status.ageSeconds
     val ageMin = age?.let { it / 60 }
 
+    // Storm banner above everything else, as on the phone app.
+    s.storm?.let { st ->
+        if (st.trend == "approaching" || st.trend == "overhead") {
+            val away = st.last?.let { "${one(it.distance.value)} ${it.distance.unit}" }
+            val text = if (st.trend == "overhead") "Lightning overhead." else "Lightning approaching."
+            Note(if (away == null) text else "$text Last strike $away away.", C.bad)
+        }
+    }
+
     if (age != null && age > 600) Note("Station data is ${(age / 60.0).let { Math.round(it) }} minutes old.", C.warn)
 
     // Hero: big temperature beside the animated sky icon, then the lines under it.
@@ -294,6 +303,17 @@ private fun Dashboard(s: Snapshot) {
         },
     )
 
+    val hist = s.history
+    if (hist != null && hist.points.size > 1) {
+        Section("Last 24 hours", updatedMinutes = ageMin)
+        Panel { TrendChart(hist.points.map { it.second }, unit = "°") }
+    }
+    val week = s.week
+    if (week != null && week.days.isNotEmpty()) {
+        Section("Last 7 days")
+        Panel { WeekStrip(week) }
+    }
+
     Section("Today")
     ListPanel(
         listOf(
@@ -302,6 +322,22 @@ private fun Dashboard(s: Snapshot) {
             { InfoRow("Rain", s.today.rain?.let { reading("dailyrainin", it) } ?: "--") },
         ),
     )
+
+    s.storm?.let { st ->
+        Section("Lightning")
+        Panel {
+            Column {
+                Text("${st.strikesToday} strike${if (st.strikesToday == 1) "" else "s"} today", fontSize = 18.sp, fontWeight = FontWeight.W800, color = C.text)
+                Spacer(Modifier.height(4.dp))
+                val last = st.last
+                Text(
+                    if (last == null) "No strikes recorded yet." else
+                        "Last: ${one(last.distance.value)} ${last.distance.unit} away, ${agoText(last.ageSeconds)}",
+                    style = T.body, color = C.muted,
+                )
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -427,6 +463,13 @@ private fun SettingsPage(
 // Formatting
 
 private fun deg(m: Measure?): String = if (m == null) "--°" else "${Math.round(m.value)}°"
+
+private fun agoText(seconds: Long): String = when {
+    seconds < 90 -> "just now"
+    seconds < 3600 -> "${seconds / 60} min ago"
+    seconds < 86400 -> "${seconds / 3600} h ago"
+    else -> "${seconds / 86400} d ago"
+}
 
 private fun one(v: Double): String = "%.1f".format(v)
 

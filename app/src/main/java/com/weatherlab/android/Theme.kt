@@ -21,13 +21,11 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
 
 // Ported from the AZ Weather Lab phone app's theme.dart (read only reference): same colours, same type scale.
-// Dark mode has three looks: navy (Dark and Green) and slate teal (Slate). Light mode is its own palette.
+// Two looks: navy Dark and Light.
 
 enum class Scheme(val key: String, val label: String) {
     DARK("dark", "Dark"),
-    LIGHT("light", "Light"),
-    GREEN("green", "Green"),
-    SLATE("slate", "Slate");
+    LIGHT("light", "Light");
 
     companion object {
         fun from(key: String?): Scheme = entries.firstOrNull { it.key == key } ?: DARK
@@ -55,20 +53,9 @@ private val Navy = Pal(
     cyan = c(0x58A6FF), warn = c(0xFFB020), bad = c(0xFF9A9A), good = c(0x5EE0A0),
     muted = c(0xB0B9DD), text = c(0xE8ECFF), quiet = c(0x6E78AE),
 )
-private val Lime = Navy.let {
-    Pal(false, it.bg, it.card, it.line, it.bar, c(0xB5E24A), it.warn, it.bad, it.good, it.muted, it.text, it.quiet)
-}
-private val Slate = Pal(
-    light = false,
-    bg = c(0x0F1E24), card = c(0x172A31), line = c(0x24404A), bar = c(0x2F4D58),
-    cyan = c(0x8FE3D0), warn = c(0xF5B85C), bad = c(0xF7A1A1), good = c(0x7AD9A0),
-    muted = c(0x9AB3BA), text = c(0xE6F0F2), quiet = c(0x7C9AA1),
-)
 
 fun palette(s: Scheme): Pal = when (s) {
     Scheme.LIGHT -> Light
-    Scheme.GREEN -> Lime
-    Scheme.SLATE -> Slate
     Scheme.DARK -> Navy
 }
 

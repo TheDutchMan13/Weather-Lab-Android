@@ -48,7 +48,7 @@ class WeatherWidget : GlanceAppWidget() {
                     .background(pal.card)
                     .cornerRadius(18.dp)
                     .padding(14.dp)
-                    .clickable(actionStartActivity<MainActivity>()),
+                    .clickable(actionStartActivity(android.content.Intent(context, MainActivity::class.java))),
             ) {
                 if (!data.configured || data.message.isNotEmpty()) {
                     Text("Weather Lab", style = TextStyle(color = text, fontSize = 16.sp, fontWeight = FontWeight.Bold))

@@ -22,7 +22,7 @@ class Prefs(context: Context) {
         get() = prefs.getString("token", "").orEmpty()
         set(value) = prefs.edit().putString("token", value.trim()).apply()
 
-    /** Colour scheme chosen in Settings: dark, light, green or slate (same options as the AZ Weather Lab phone app). */
+    /** Colour scheme chosen in Settings: dark or light. */
     var scheme: String
         get() = prefs.getString("scheme", "dark").orEmpty()
         set(value) = prefs.edit().putString("scheme", value).apply()

@@ -5,3 +5,24 @@ local.properties
 *.iml
 .DS_Store
 captures/
+
+# Signing keys and secrets: never commit these
+*.jks
+*.keystore
+keystore.properties
+*.pem
+*.key
+google-services.json
+.env
+
+# Build output and recordings
+*.apk
+*.aab
+*.apks
+.cxx/
+.externalNativeBuild/
+*.mp4
+*.mov
+
+# Local backups made while editing
+_backup_*/

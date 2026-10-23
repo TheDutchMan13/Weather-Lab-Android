@@ -3,76 +3,112 @@ package com.weatherlab.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val prefs = Prefs(this)
         setContent {
-            MaterialTheme {
-                Surface(Modifier.fillMaxWidth()) {
-                    WeatherLabScreen(prefs)
+            var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
+            WeatherLabTheme(scheme) {
+                // Status and navigation bar icons follow the scheme, not the phone's own dark mode.
+                val view = LocalView.current
+                val light = palette(scheme).light
+                SideEffect {
+                    val c = WindowCompat.getInsetsController(window, view)
+                    c.isAppearanceLightStatusBars = light
+                    c.isAppearanceLightNavigationBars = light
+                }
+                WeatherLabApp(prefs, scheme) {
+                    scheme = it
+                    prefs.scheme = it.key
                 }
             }
         }
     }
 }
 
-/** Labels for the readings the app shows, in the order they appear. Keys match the API's names. */
-private val READING_LABELS = linkedMapOf(
-    "tempf" to "Temperature",
-    "feelslikef" to "Feels like",
-    "dewpointf" to "Dew point",
-    "humidity" to "Humidity",
-    "windspeedmph" to "Wind",
-    "windgustmph" to "Gust",
-    "baromrelin" to "Pressure",
-    "rainratein" to "Rain rate",
-    "dailyrainin" to "Rain today",
-    "uv" to "UV index",
-)
-
 private val WHEN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a")
 
+private enum class Tab(val label: String, val icon: ImageVector, val selected: ImageVector) {
+    LIVE("Live", Icons.Outlined.Cloud, Icons.Filled.Cloud),
+    ALERTS("Alerts", Icons.Outlined.Bolt, Icons.Filled.Bolt),
+    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherLabScreen(prefs: Prefs) {
+fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
     var address by remember { mutableStateOf(prefs.address) }
     var token by remember { mutableStateOf(prefs.token) }
-    var editing by remember { mutableStateOf(prefs.address.isBlank() || prefs.token.isBlank()) }
     var snapshot by remember { mutableStateOf<Snapshot?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var reloadCount by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableStateOf(if (prefs.address.isBlank() || prefs.token.isBlank()) Tab.SETTINGS else Tab.LIVE) }
 
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
     LaunchedEffect(address, token, reloadCount) {
@@ -89,130 +125,332 @@ fun WeatherLabScreen(prefs: Prefs) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Weather Lab", style = MaterialTheme.typography.headlineMedium)
+    // The Alerts tab shows a badge when something was logged in the last 24 hours, like the Storm tab on the phone app.
+    val recentAlerts = snapshot?.alerts.orEmpty().count { System.currentTimeMillis() / 1000 - it.ts < 24 * 3600 }
 
-        if (editing) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Connect to Weather Lab", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "The address is shown in Weather Lab's Settings under Android app, for example 192.168.1.50:8600. " +
-                            "The token is the one you copied there.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        label = { Text("Address") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = token,
-                        onValueChange = { token = it },
-                        label = { Text("Token") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Button(
+    Scaffold(
+        containerColor = C.bg,
+        topBar = {
+            TopAppBar(
+                title = { Text(tab.label, fontSize = 22.sp, fontWeight = FontWeight.W800) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = C.bg,
+                    scrolledContainerColor = C.bg,
+                    titleContentColor = C.text,
+                    actionIconContentColor = C.text,
+                ),
+                actions = {
+                    if (tab == Tab.LIVE) {
+                        IconButton(onClick = { reloadCount++ }, enabled = !loading) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        }
+                    }
+                },
+            )
+        },
+        bottomBar = {
+            NavigationBar(containerColor = C.card) {
+                Tab.entries.forEach { t ->
+                    NavigationBarItem(
+                        selected = tab == t,
                         onClick = {
-                            prefs.address = address
-                            prefs.token = token
-                            editing = false
-                            reloadCount++
+                            tab = t
+                            if (t == Tab.LIVE) reloadCount++
                         },
-                        enabled = address.isNotBlank() && token.isNotBlank(),
-                    ) { Text("Save and connect") }
+                        icon = {
+                            val icon = if (tab == t) t.selected else t.icon
+                            if (t == Tab.ALERTS && recentAlerts > 0) {
+                                BadgedBox(badge = { Badge(containerColor = C.bad) { Text("Alert") } }) {
+                                    Icon(icon, contentDescription = t.label)
+                                }
+                            } else {
+                                Icon(icon, contentDescription = t.label)
+                            }
+                        },
+                        label = { Text(t.label) },
+                        colors = navItemColors(),
+                    )
                 }
             }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { reloadCount++ }, enabled = !loading) {
-                    Text(if (loading) "Refreshing…" else "Refresh")
-                }
-                OutlinedButton(onClick = { editing = true }) { Text("Settings") }
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            when (tab) {
+                Tab.LIVE -> LivePage(
+                    snapshot = snapshot, error = error, loading = loading,
+                    configured = address.isNotBlank() && token.isNotBlank(),
+                    onRefresh = { reloadCount++ },
+                    onOpenSettings = { tab = Tab.SETTINGS },
+                )
+                Tab.ALERTS -> AlertsPage(snapshot)
+                Tab.SETTINGS -> SettingsPage(
+                    prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
+                    onSave = { a, t ->
+                        prefs.address = a
+                        prefs.token = t
+                        address = prefs.address
+                        token = prefs.token
+                        reloadCount++
+                        tab = Tab.LIVE
+                    },
+                    onScheme = onScheme,
+                )
             }
         }
-
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-
-        snapshot?.let { s -> Dashboard(s) }
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Live
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LivePage(
+    snapshot: Snapshot?,
+    error: String?,
+    loading: Boolean,
+    configured: Boolean,
+    onRefresh: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    PullToRefreshBox(isRefreshing = loading && snapshot != null, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            when {
+                !configured -> {
+                    EmptyCard("Add your Weather Lab address and token in Settings to see your station.")
+                    Button(
+                        onClick = onOpenSettings,
+                        colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
+                    ) { Text("Open Settings") }
+                }
+                snapshot == null && error != null -> ErrorBox(error, onRefresh, title = "Couldn't reach Weather Lab")
+                snapshot == null -> LoadingCard()
+                else -> {
+                    if (error != null) Note(error, C.warn)
+                    Dashboard(snapshot)
+                }
+            }
+        }
+    }
+}
+
+private val TILES = listOf(
+    "humidity" to "Humidity",
+    "windspeedmph" to "Wind",
+    "windgustmph" to "Gust",
+    "baromrelin" to "Pressure",
+    "rainratein" to "Rain rate",
+    "dailyrainin" to "Rain today",
+    "uv" to "UV index",
+)
 
 @Composable
 private fun Dashboard(s: Snapshot) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(s.status.station.ifBlank { "Your station" }, style = MaterialTheme.typography.titleMedium)
-            val age = s.current.ageSeconds ?: s.status.ageSeconds
-            Text(if (age == null) "No readings yet." else "Last reading ${minutesAgo(age)}.")
+    val v = s.current.values
+    val age = s.current.ageSeconds ?: s.status.ageSeconds
+    val ageMin = age?.let { it / 60 }
+
+    if (age != null && age > 600) Note("Station data is ${(age / 60.0).let { Math.round(it) }} minutes old.", C.warn)
+
+    // Hero: big temperature beside the animated sky icon, then the lines under it.
+    val temp = v["tempf"]
+    val gustMph = v["windgustmph"]?.let { if (it.unit.contains("km")) it.value / 1.609344 else it.value }
+    val rainRate = v["rainratein"]?.value
+    val kind = skyKind(rainRate, gustMph, LocalDateTime.now().hour)
+    Panel {
+        Column {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(if (temp == null) "--°" else "${Math.round(temp.value)}°", style = T.hero, color = C.text)
+                Spacer(Modifier.width(12.dp))
+                WxIcon(kind, size = 72.dp)
+            }
+            if (ageMin != null) {
+                Text(
+                    ageText(ageMin), fontSize = 12.sp,
+                    color = if (ageMin > 10) C.warn else C.muted,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(s.status.station.ifBlank { "Your station" }, fontSize = 17.sp, fontWeight = FontWeight.W700, color = C.text)
+            Spacer(Modifier.height(8.dp))
+            Text("Feels like ${deg(v["feelslikef"])} · Dew point ${deg(v["dewpointf"])}", style = T.body, color = C.muted)
+            Text("Today: high ${deg(s.today.high)} · low ${deg(s.today.low)}", style = T.body, color = C.muted)
         }
     }
+    Spacer(Modifier.height(10.dp))
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Now", style = MaterialTheme.typography.titleMedium)
-            READING_LABELS.forEach { (key, label) ->
-                val m = s.current.values[key] ?: return@forEach
-                val unit = if (key == "humidity") "%" else m.unit
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(label)
-                    Text("${format(m.value)} $unit".trim())
-                }
-            }
-        }
-    }
+    Section("Right now", updatedMinutes = ageMin)
+    val dayAlerts = s.alerts.count { System.currentTimeMillis() / 1000 - it.ts < 24 * 3600 }
+    Text(
+        if (dayAlerts == 0) "No alerts in the last 24 hours" else "$dayAlerts alert${if (dayAlerts == 1) "" else "s"} in the last 24 hours",
+        fontSize = 14.sp, fontWeight = FontWeight.W700, color = C.text,
+    )
+    Spacer(Modifier.height(10.dp))
+    TileGrid(
+        TILES.mapNotNull { (key, label) ->
+            val m = v[key] ?: return@mapNotNull null
+            val item: @Composable (Modifier) -> Unit = { mod -> Tile(label, reading(key, m), mod) }
+            item
+        },
+    )
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Today", style = MaterialTheme.typography.titleMedium)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("High")
-                Text(s.today.high?.let { "${format(it.value)} ${it.unit}" } ?: "--")
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Low")
-                Text(s.today.low?.let { "${format(it.value)} ${it.unit}" } ?: "--")
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Rain")
-                Text(s.today.rain?.let { "${format(it.value)} ${it.unit}" } ?: "--")
-            }
-        }
-    }
+    Section("Today")
+    ListPanel(
+        listOf(
+            { InfoRow("High", s.today.high?.let { reading("tempf", it) } ?: "--") },
+            { InfoRow("Low", s.today.low?.let { reading("tempf", it) } ?: "--") },
+            { InfoRow("Rain", s.today.rain?.let { reading("dailyrainin", it) } ?: "--") },
+        ),
+    )
+}
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Recent alerts", style = MaterialTheme.typography.titleMedium)
-            if (s.alerts.isEmpty()) {
-                Text("None yet.")
-            }
-            s.alerts.forEach { alert ->
-                Column {
-                    Text(alert.text)
-                    Text(
-                        Instant.ofEpochSecond(alert.ts).atZone(ZoneId.systemDefault()).format(WHEN),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
+// ---------------------------------------------------------------------------------------------------------------------
+// Alerts
+
+@Composable
+private fun AlertsPage(snapshot: Snapshot?) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 24.dp),
+    ) {
+        Section("Recent alerts")
+        val alerts = snapshot?.alerts.orEmpty()
+        if (alerts.isEmpty()) {
+            EmptyCard("No alerts yet.")
+        } else {
+            ListPanel(
+                alerts.map { a ->
+                    val row: @Composable () -> Unit = {
+                        InfoRow(
+                            left = a.text, right = "",
+                            sub = Instant.ofEpochSecond(a.ts).atZone(ZoneId.systemDefault()).format(WHEN),
+                        )
+                    }
+                    row
+                },
+            )
         }
     }
 }
 
-private fun format(value: Double): String =
-    if (value == Math.floor(value)) value.toLong().toString() else "%.1f".format(value)
+// ---------------------------------------------------------------------------------------------------------------------
+// Settings
 
-private fun minutesAgo(seconds: Int): String = when {
-    seconds < 90 -> "just now"
-    seconds < 3600 -> "${seconds / 60} min ago"
-    else -> "${seconds / 3600} h ago"
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsPage(
+    prefs: Prefs,
+    address: String,
+    token: String,
+    scheme: Scheme,
+    snapshot: Snapshot?,
+    onSave: (String, String) -> Unit,
+    onScheme: (Scheme) -> Unit,
+) {
+    var a by remember { mutableStateOf(address) }
+    var t by remember { mutableStateOf(token) }
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = C.text, unfocusedTextColor = C.text,
+        focusedBorderColor = C.cyan, unfocusedBorderColor = C.line,
+        focusedLabelColor = C.cyan, unfocusedLabelColor = C.muted,
+        cursorColor = C.cyan,
+    )
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 24.dp),
+    ) {
+        Section("Connection")
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "The address is shown in Weather Lab's Settings under Android app, for example 192.168.1.50:8600. " +
+                        "The token is the one you copied there.",
+                    style = T.label, color = C.muted,
+                )
+                OutlinedTextField(
+                    value = a, onValueChange = { a = it }, label = { Text("Address") },
+                    singleLine = true, colors = fieldColors, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = t, onValueChange = { t = it }, label = { Text("Token") },
+                    singleLine = true, colors = fieldColors, modifier = Modifier.fillMaxWidth(),
+                )
+                Button(
+                    onClick = { onSave(a, t) },
+                    enabled = a.isNotBlank() && t.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
+                ) { Text("Save and connect") }
+            }
+        }
+
+        Section("Appearance")
+        Panel {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Scheme.entries.forEach { s ->
+                    FilterChip(
+                        selected = scheme == s,
+                        onClick = { onScheme(s) },
+                        label = { Text(s.label, color = C.text) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = C.card,
+                            selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true, selected = scheme == s,
+                            borderColor = C.line, selectedBorderColor = C.cyan,
+                        ),
+                    )
+                }
+            }
+        }
+
+        if (snapshot != null) {
+            Section("Station")
+            ListPanel(
+                listOf(
+                    { InfoRow("Station", snapshot.status.station.ifBlank { "--" }) },
+                    { InfoRow("Weather Lab version", snapshot.status.appVersion.ifBlank { "--" }) },
+                    { InfoRow("Units", if (snapshot.current.metric) "Metric" else "US") },
+                ),
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Formatting
+
+private fun deg(m: Measure?): String = if (m == null) "--°" else "${Math.round(m.value)}°"
+
+private fun ageText(minutes: Int): String = when {
+    minutes < 1 -> "updated just now"
+    minutes < 60 -> "updated $minutes min ago"
+    else -> "updated ${"%.1f".format(minutes / 60.0)} h ago"
+}
+
+/** A reading with its unit. Rain and pressure keep their decimals; the rest are whole numbers (UV keeps one). */
+private fun reading(key: String, m: Measure): String {
+    val decimals = when (key) {
+        "dailyrainin", "rainratein" -> if (m.unit.contains("mm")) 1 else 2
+        "baromrelin" -> if (m.unit.contains("hPa") || m.unit.contains("mb")) 1 else 2
+        "uv" -> 1
+        else -> 0
+    }
+    val num = if (decimals == 0) Math.round(m.value).toString() else "%.${decimals}f".format(m.value)
+    val unit = if (key == "humidity") "%" else m.unit
+    val sep = if (unit == "%" || unit.startsWith("°")) "" else " "
+    return "$num$sep$unit".trim()
 }

@@ -1,0 +1,284 @@
+package com.weatherlab.android
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+// Ported from the AZ Weather Lab phone app's widgets.dart (read only reference).
+// Same shapes, padding and borders: Panel, Tile, Pill, Section, Note, EmptyCard, ErrorBox, LoadingCard, infoRow, listPanel.
+
+private fun Color.a(alpha255: Int) = copy(alpha = alpha255 / 255f)
+
+/** The card behind most content: card colour, 18 dp corners, 16 dp padding, optional 1.5 dp border. */
+@Composable
+fun Panel(modifier: Modifier = Modifier, border: Color? = null, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(C.card)
+            .then(if (border != null) Modifier.border(BorderStroke(1.5.dp, border), shape) else Modifier)
+            .padding(16.dp),
+    ) { content() }
+}
+
+// Measure colours from the dashboard tiles. A tile for one of these measures gets a coloured left edge.
+private fun measureAccent(label: String): Color? = when (label) {
+    "Wind" -> Color(0xFF8FD3C0)
+    "Gust" -> Color(0xFF10B981)
+    "Humidity" -> Color(0xFF6E78AE)
+    "Pressure" -> Color(0xFFA78BFA)
+    "Rain rate" -> Color(0xFF8A5CF0)
+    "UV index" -> Color(0xFFF6D55C)
+    "Solar" -> Color(0xFFF4A259)
+    else -> null
+}
+
+/** One reading: small label, big figure, optional small line under it. 16 dp corners, accent edge for known measures. */
+@Composable
+fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null) {
+    val accent = measureAccent(label)
+    val shape = RoundedCornerShape(16.dp)
+    val content: @Composable () -> Unit = {
+        Column(Modifier.padding(14.dp)) {
+            Text(label, style = T.label, color = C.muted)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = T.value, color = color ?: C.text)
+            if (sub != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(sub, style = T.label, color = C.muted)
+            }
+        }
+    }
+    Box(
+        modifier
+            .clip(shape)
+            .background(C.card)
+            .clearAndSetSemantics { contentDescription = "$label: $value${if (sub == null) "" else ", $sub"}" },
+    ) {
+        if (accent == null) content()
+        else Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+            Box(Modifier.weight(1f)) { content() }
+        }
+    }
+}
+
+/** Two tiles per row, as on the phone app held upright. Rows share the height of their tallest tile. */
+@Composable
+fun TileGrid(items: List<@Composable (Modifier) -> Unit>, perRow: Int = 2) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.chunked(perRow).forEach { row ->
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { item -> item(Modifier.weight(1f).fillMaxHeight()) }
+                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** A heading above a group of cards: 22 dp above, 8 dp below, optional "updated 3 min ago" chip. */
+@Composable
+fun Section(text: String, updatedMinutes: Int? = null) {
+    Row(
+        Modifier.padding(top = 22.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(text, style = T.section, color = C.text)
+        if (updatedMinutes != null) FreshChip(updatedMinutes)
+    }
+}
+
+/** Green under 15 minutes, amber under an hour, red after that (same rule as the dashboard). */
+@Composable
+fun FreshChip(mins: Int) {
+    val color = if (mins < 15) C.good else if (mins < 60) C.warn else C.bad
+    val txt = when {
+        mins < 1 -> "updated just now"
+        mins < 60 -> "updated $mins min ago"
+        else -> "updated %.1f h ago".format(mins / 60.0)
+    }
+    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(color.a(45)).padding(horizontal = 9.dp, vertical = 2.dp)) {
+        Text(txt, color = color, fontSize = 12.sp, fontWeight = FontWeight.W600)
+    }
+}
+
+@Composable
+fun Pill(text: String, color: Color) {
+    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(color.a(45)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+        Text(text, style = T.pill, color = color)
+    }
+}
+
+/** The one style for every notice: offline, stale data, warnings, errors. The icon follows the colour. */
+@Composable
+fun Note(text: String, color: Color, icon: ImageVector? = null) {
+    val ic = icon ?: when (color) {
+        C.bad -> Icons.Outlined.ErrorOutline
+        C.warn -> Icons.Rounded.WarningAmber
+        C.good -> Icons.Outlined.CheckCircle
+        else -> Icons.Outlined.Info
+    }
+    Row(
+        Modifier
+            .padding(bottom = 10.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(color.a(35))
+            .padding(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(ic, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = T.note, color = color, modifier = Modifier.weight(1f))
+    }
+}
+
+/** The one "nothing here yet" card: dashed grey outline, light grey fill, 12 dp corners. */
+@Composable
+fun EmptyCard(text: String, icon: ImageVector = Icons.Outlined.Inbox) {
+    val dash = Color(0x73808080)
+    Row(
+        Modifier
+            .padding(vertical = 8.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0x14808080))
+            .drawBehind {
+                drawRoundRect(
+                    color = dash,
+                    topLeft = Offset(0.5f, 0.5f),
+                    size = Size(size.width - 1f, size.height - 1f),
+                    cornerRadius = CornerRadius(12.dp.toPx()),
+                    style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 6f))),
+                )
+            }
+            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(icon, contentDescription = null, tint = C.muted, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = T.note, color = C.muted, modifier = Modifier.weight(1f))
+    }
+}
+
+/** The one "could not load" card, with a retry button and a red edge. */
+@Composable
+fun ErrorBox(message: String, onRetry: () -> Unit, title: String = "Could not load this page") {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(C.card),
+    ) {
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(C.bad))
+            Column(Modifier.weight(1f).padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = C.bad, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(title, style = T.heading, color = C.text, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(message, style = T.label, color = C.muted)
+                Spacer(Modifier.height(14.dp))
+                FilledTonalButton(onClick = onRetry) { Text("Try again") }
+            }
+        }
+    }
+}
+
+/** The one loading card: pulsing bars where the content will go. */
+@Composable
+fun LoadingCard() {
+    val pulse = rememberInfiniteTransition(label = "loading").animateFloat(
+        initialValue = 0.35f, targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse",
+    )
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card).padding(16.dp)) {
+        Column(Modifier.alpha(pulse.value), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(0.5f, 1f, 0.8f).forEach { w ->
+                Box(Modifier.fillMaxWidth(w).height(12.dp).clip(RoundedCornerShape(6.dp)).background(C.bar))
+            }
+        }
+    }
+}
+
+/** A row with a label on the left and a value on the right, optional small text under the label. */
+@Composable
+fun InfoRow(left: String, right: String, sub: String? = null, rightColor: Color? = null, trailing: (@Composable RowScope.() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(left, style = T.body, color = C.text)
+            if (sub != null) Text(sub, style = T.label, color = C.muted)
+        }
+        if (right.isNotEmpty()) Text(right, style = T.figure, color = rightColor ?: C.text)
+        if (trailing != null) {
+            Spacer(Modifier.width(8.dp))
+            trailing()
+        }
+    }
+}
+
+/** Rows inside one Panel with thin dividers between them. */
+@Composable
+fun ListPanel(rows: List<@Composable () -> Unit>) {
+    Panel {
+        Column {
+            rows.forEachIndexed { i, row ->
+                row()
+                if (i < rows.lastIndex) HorizontalDivider(thickness = 1.dp, color = C.line)
+            }
+        }
+    }
+}

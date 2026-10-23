@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown for a moment before the app draws: the navy page colour, so there is no white flash. -->
+    <style name="Theme.WeatherLab" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0A0E27</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

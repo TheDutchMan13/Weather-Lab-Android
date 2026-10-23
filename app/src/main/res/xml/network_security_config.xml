@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Weather Lab's API runs on your home network over plain HTTP, at an address such as 192.168.1.50:8600.
+     Cleartext is allowed so the app can reach it. The token is still required for every request. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

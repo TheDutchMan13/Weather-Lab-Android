@@ -44,7 +44,15 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build the debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+
+      # If the build fails, show the compiler's complaints as short notes on the run, so they are easy to find.
+      - name: Show build errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|Could not resolve|Execution failed|^> " build.log | head -25 | while IFS= read -r line; do
+            echo "::error::${line:0:400}"
+          done
 
       - name: Keep the APK
         uses: actions/upload-artifact@v4

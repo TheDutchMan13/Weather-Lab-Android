@@ -26,4 +26,9 @@ class Prefs(context: Context) {
     var scheme: String
         get() = prefs.getString("scheme", "dark").orEmpty()
         set(value) = prefs.edit().putString("scheme", value).apply()
+
+    /** The storm countdown notification, on unless turned off in Settings (as on the phone app). */
+    var stormNotify: Boolean
+        get() = prefs.getBoolean("storm_notify", true)
+        set(value) = prefs.edit().putBoolean("storm_notify", value).apply()
 }

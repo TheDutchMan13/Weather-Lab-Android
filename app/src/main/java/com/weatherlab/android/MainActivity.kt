@@ -1,8 +1,12 @@
 package com.weatherlab.android
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,6 +43,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -51,8 +57,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,6 +79,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val prefs = Prefs(this)
+        StormWatch.schedule(this)
         setContent {
             var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
             WeatherLabTheme(scheme) {
@@ -108,15 +117,18 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var reloadCount by remember { mutableIntStateOf(0) }
+    var stormOn by remember { mutableStateOf(prefs.stormNotify) }
+    val context = LocalContext.current
     var tab by remember { mutableStateOf(if (prefs.address.isBlank() || prefs.token.isBlank()) Tab.SETTINGS else Tab.LIVE) }
 
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
-    LaunchedEffect(address, token, reloadCount) {
+    LaunchedEffect(address, token, reloadCount, stormOn) {
         while (address.isNotBlank() && token.isNotBlank()) {
             loading = true
             try {
                 snapshot = withContext(Dispatchers.IO) { WeatherLabApi(address, token).snapshot() }
                 error = null
+                StormWatch.update(context, snapshot?.storm, stormOn)
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't reach Weather Lab."
             }
@@ -187,6 +199,11 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                         tab = Tab.LIVE
                     },
                     onScheme = onScheme,
+                    stormOn = stormOn,
+                    onStorm = { on ->
+                        stormOn = on
+                        prefs.stormNotify = on
+                    },
                 )
             }
         }
@@ -267,7 +284,7 @@ private fun Dashboard(s: Snapshot) {
     val kind = skyKind(rainRate, gustMph, LocalDateTime.now().hour)
     Panel {
         Column {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (temp == null) "--°" else "${one(temp.value)}°", style = T.hero, color = C.text)
                 Spacer(Modifier.width(12.dp))
                 WxIcon(kind, size = 72.dp)
@@ -385,7 +402,10 @@ private fun SettingsPage(
     snapshot: Snapshot?,
     onSave: (String, String) -> Unit,
     onScheme: (Scheme) -> Unit,
+    stormOn: Boolean,
+    onStorm: (Boolean) -> Unit,
 ) {
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     var a by remember { mutableStateOf(address) }
     var t by remember { mutableStateOf(token) }
     val fieldColors = OutlinedTextFieldDefaults.colors(
@@ -422,6 +442,28 @@ private fun SettingsPage(
                     enabled = a.isNotBlank() && t.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
                 ) { Text("Save and connect") }
+            }
+        }
+
+        Section("Notifications")
+        Panel {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Storm countdown", style = T.body, color = C.text)
+                    Text(
+                        "Shows a notification while lightning is near. Checked about every 15 minutes in the background.",
+                        style = T.label, color = C.muted,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = stormOn,
+                    onCheckedChange = { on ->
+                        onStorm(on)
+                        if (on && Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                )
             }
         }
 
@@ -476,7 +518,7 @@ private fun one(v: Double): String = "%.1f".format(v)
 private fun deg1(m: Measure?): String = if (m == null) "--°" else "${one(m.value)}°"
 
 /** The short word under the temperature. The API sends no forecast text, so it follows the sky icon. */
-private fun conditionWord(kind: String): String = when (kind) {
+internal fun conditionWord(kind: String): String = when (kind) {
     "rain" -> "Rain"
     "wind" -> "Windy"
     "night" -> "Clear"

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
 
 // Ported from the AZ Weather Lab phone app's theme.dart (read only reference): same colours, same type scale.
@@ -113,7 +114,13 @@ object T {
     val pill = TextStyle(fontFamily = Manrope, fontSize = 12.sp, fontWeight = FontWeight.W700)
     val value = TextStyle(fontFamily = Manrope, fontSize = 21.sp, fontWeight = FontWeight.W800, fontFeatureSettings = TNUM)
     val figure = TextStyle(fontFamily = Manrope, fontSize = 15.sp, fontWeight = FontWeight.W800, fontFeatureSettings = TNUM)
-    val hero = TextStyle(fontFamily = Manrope, fontSize = 76.sp, fontWeight = FontWeight.W800, fontFeatureSettings = TNUM, lineHeight = 76.sp)
+    // lineHeight equals the font size (Flutter height 1.0), so the big
+    // temperature sits as tight as it does in the phone app.
+    val hero = TextStyle(
+        fontFamily = Manrope, fontSize = 76.sp, fontWeight = FontWeight.W800, fontFeatureSettings = TNUM,
+        lineHeight = 76.sp,
+        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+    )
 }
 
 private fun typography(): Typography {

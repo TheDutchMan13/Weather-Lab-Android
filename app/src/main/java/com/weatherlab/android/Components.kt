@@ -71,6 +71,8 @@ fun Panel(modifier: Modifier = Modifier, border: Color? = null, content: @Compos
     ) { content() }
 }
 
+private const val SHOW_TILE_ACCENT = false
+
 // Measure colours from the dashboard tiles. A tile for one of these measures gets a coloured left edge.
 private fun measureAccent(label: String): Color? = when (label) {
     "Wind" -> Color(0xFF8FD3C0)
@@ -86,7 +88,8 @@ private fun measureAccent(label: String): Color? = when (label) {
 /** One reading: small label, big figure, optional small line under it. 16 dp corners, accent edge for known measures. */
 @Composable
 fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null) {
-    val accent = measureAccent(label)
+    // The running phone app shows plain tiles (no coloured edge), so the edge is off here too. Set to true to bring it back.
+    val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
     val shape = RoundedCornerShape(16.dp)
     val content: @Composable () -> Unit = {
         Column(Modifier.padding(14.dp)) {

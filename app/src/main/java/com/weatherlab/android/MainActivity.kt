@@ -139,13 +139,6 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                     titleContentColor = C.text,
                     actionIconContentColor = C.text,
                 ),
-                actions = {
-                    if (tab == Tab.LIVE) {
-                        IconButton(onClick = { reloadCount++ }, enabled = !loading) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                        }
-                    }
-                },
             )
         },
         bottomBar = {

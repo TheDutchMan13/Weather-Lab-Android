@@ -35,3 +35,19 @@ If the PC is off, or Weather Lab isn't open, the app shows the error from the PC
 Every push to `main` builds the debug APK on GitHub (see `.github/workflows/build.yml`).
 Open the repository's **Actions** tab, pick the latest run, and download **WeatherLabAndroid-debug** from the bottom of the page.
 Copy the APK to your phone and open it to install. Allow installs from your browser or file manager when Android asks.
+
+## Making a release
+
+A release is a signed APK that stays installable as an update. The signing key is made once, kept off the repository,
+and handed to GitHub as secrets. If the key is lost, new versions can no longer be installed over old ones, so back it
+up somewhere safe (not in this folder).
+
+1. Make the key. In PowerShell (Android Studio's own copy of Java makes it):
+   `& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore weatherlab-release.jks -alias weatherlab -keyalg RSA -keysize 2048 -validity 10000`
+   Choose a password. Copy `weatherlab-release.jks` to a safe place, then take it out of this folder.
+2. Turn the key into text: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("weatherlab-release.jks")) | Set-Clipboard`
+3. In the repository on GitHub, open Settings > Secrets and variables > Actions, and add four secrets:
+   `KEYSTORE_BASE64` (the text from step 2), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`weatherlab`) and `KEY_PASSWORD`
+   (the same as the keystore password, unless you chose another).
+4. Raise `versionCode` and `versionName` in `app/build.gradle.kts`, push, then tag it:
+   `git tag v0.3.0` and `git push origin v0.3.0`. GitHub builds the signed APK and posts it under Releases.

@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
@@ -121,6 +123,7 @@ private val WHEN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a
 
 private enum class Tab(val label: String, val icon: ImageVector, val selected: ImageVector) {
     LIVE("Live", Icons.Outlined.Cloud, Icons.Filled.Cloud),
+    FORECAST("Forecast", Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth),
     STORM("Storm", Icons.Outlined.Bolt, Icons.Filled.Bolt),
     ALERTS("Alerts", Icons.Outlined.Notifications, Icons.Filled.Notifications),
     MORE("More", Icons.Outlined.Apps, Icons.Filled.Apps),
@@ -234,6 +237,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         sub = MoreSub.SETTINGS
                     },
                 )
+                Tab.FORECAST -> ForecastPage(address, token)
                 Tab.STORM -> StormPage(snapshot, stormOn)
                 Tab.ALERTS -> AlertsPage(snapshot)
                 Tab.MORE -> when {
@@ -242,6 +246,15 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.DAYS && dayKey == null -> DaysPage(address, token) { dayKey = it }
                     sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
                     sub == MoreSub.RECORDS -> RecordsPage(address, token)
+                    sub == MoreSub.RANKINGS -> RankingsPage(address, token)
+                    sub == MoreSub.WIND -> WindPage(address, token)
+                    sub == MoreSub.SUN -> SunPage(address, token)
+                    sub == MoreSub.HEAT -> HeatPage(address, token)
+                    sub == MoreSub.RAIN_CAL -> RainCalendarPage(address, token)
+                    sub == MoreSub.RAIN_EVENTS -> RainEventsPage(address, token)
+                    sub == MoreSub.LIGHTNING -> LightningPage(address, token)
+                    sub == MoreSub.STATION -> StationPage(address, token)
+                    sub == MoreSub.WHATS_NEW -> WhatsNewPage(address, token)
                     else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
                     onSave = { a, t ->

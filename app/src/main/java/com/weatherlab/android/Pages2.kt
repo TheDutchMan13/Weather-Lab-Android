@@ -173,7 +173,7 @@ fun TouchBars(values: List<Double?>, labels: List<String>, unit: String, height:
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Chips(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
+internal fun Chips(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         options.forEachIndexed { i, label ->
             FilterChip(
@@ -192,7 +192,7 @@ private fun Chips(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
     }
 }
 
-private fun tiles(vararg items: Triple<String, String, String?>): List<@Composable (Modifier) -> Unit> =
+internal fun tiles(vararg items: Triple<String, String, String?>): List<@Composable (Modifier) -> Unit> =
     items.map { (label, value, sub) ->
         val item: @Composable (Modifier) -> Unit = { m -> Tile(label, value, m, sub = sub) }
         item
@@ -227,7 +227,7 @@ fun RankingsPage(address: String, token: String) {
 
 private val LONG_DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US)
 
-private fun dayLong(date: String): String = try {
+internal fun dayLong(date: String): String = try {
     LocalDate.parse(date).format(LONG_DAY)
 } catch (_: Exception) {
     date
@@ -596,6 +596,16 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.6.0", "October 23, 2026",
+        listOf(
+            "History pages from your own station: On This Day, Compare, Monthly Card, My Year, Season Milestones, Anomalies, Alert History, Forecast Accuracy, Export Data (CSV) and Season Rewind. They need Weather Lab 0.37 or newer.",
+            "Public-source pages: Radar, Airport comparison, Tropics and Air and Smoke (with an AirNow key).",
+            "Phone Alerts: shows the ntfy server and topic so this phone gets the same alerts as your PC.",
+            "App lock with your phone's screen lock, and a choice of how soon it locks again.",
+            "Pause refreshing while the app is in the background, and a setup code to move your connection to a new phone.",
+        ),
+    ),
     NewsEntry(
         "0.5.0", "October 23, 2026",
         listOf(

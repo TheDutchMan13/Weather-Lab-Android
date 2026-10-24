@@ -3,6 +3,8 @@ package com.weatherlab.android
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDateTime
@@ -87,10 +90,19 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
+    private lateinit var prefs: Prefs
+    private var locked by mutableStateOf(false)
+    private var leftAt = 0L
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val prefs = Prefs(this)
+        prefs = Prefs(this)
+        // With App lock on, a fresh start is locked and the app's picture is hidden in the recent apps list.
+        if (prefs.lockAfter >= 0) {
+            locked = true
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         StormWatch.schedule(this)
         setContent {
             var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
@@ -106,16 +118,33 @@ class MainActivity : ComponentActivity() {
                     c.isAppearanceLightStatusBars = light
                     c.isAppearanceLightNavigationBars = light
                 }
-                WeatherLabApp(prefs, scheme, textScale, onTextScale = {
-                    textScale = it
-                    prefs.textScale = it
-                }) {
-                    scheme = it
-                    prefs.scheme = it.key
+                if (locked) {
+                    LockScreen { locked = false }
+                } else {
+                    WeatherLabApp(prefs, scheme, textScale, onTextScale = {
+                        textScale = it
+                        prefs.textScale = it
+                    }) {
+                        scheme = it
+                        prefs.scheme = it.key
+                    }
                 }
             }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppState.foreground.value = true
+        val after = prefs.lockAfter
+        if (after >= 0 && leftAt > 0 && (SystemClock.elapsedRealtime() - leftAt) / 1000 >= after) locked = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppState.foreground.value = false
+        leftAt = SystemClock.elapsedRealtime()
     }
 }
 
@@ -139,6 +168,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var loading by remember { mutableStateOf(false) }
     var reloadCount by remember { mutableIntStateOf(0) }
     var stormOn by remember { mutableStateOf(prefs.stormNotify) }
+    var pauseBg by remember { mutableStateOf(prefs.pauseInBackground) }
+    var lockAfter by remember { mutableIntStateOf(prefs.lockAfter) }
     val context = LocalContext.current
     val needsSetup = prefs.address.isBlank() || prefs.token.isBlank()
     var tab by remember { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }
@@ -157,6 +188,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
     LaunchedEffect(address, token, reloadCount, stormOn) {
         while (address.isNotBlank() && token.isNotBlank()) {
+            // With "Pause in the background" on, wait here until the app is on screen again.
+            if (pauseBg) AppState.foreground.first { it }
             loading = true
             try {
                 snapshot = withContext(Dispatchers.IO) { WeatherLabApi(address, token).snapshot() }
@@ -255,6 +288,21 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.LIGHTNING -> LightningPage(address, token)
                     sub == MoreSub.STATION -> StationPage(address, token)
                     sub == MoreSub.WHATS_NEW -> WhatsNewPage(address, token)
+                    sub == MoreSub.ON_THIS_DAY -> OnThisDayPage(address, token)
+                    sub == MoreSub.COMPARE -> ComparePage(address, token)
+                    sub == MoreSub.MONTH -> MonthCardPage(address, token)
+                    sub == MoreSub.YEAR -> YearPage(address, token)
+                    sub == MoreSub.MILESTONES -> MilestonesPage(address, token)
+                    sub == MoreSub.ANOMALIES -> AnomaliesPage(address, token)
+                    sub == MoreSub.ALERT_HISTORY -> AlertHistoryPage(address, token)
+                    sub == MoreSub.FC_ACCURACY -> ForecastAccuracyPage(address, token)
+                    sub == MoreSub.EXPORT -> ExportPage(address, token)
+                    sub == MoreSub.REWIND -> RewindPage(address, token)
+                    sub == MoreSub.AIRPORT -> AirportPage(address, token)
+                    sub == MoreSub.TROPICS -> TropicsPage(address, token)
+                    sub == MoreSub.RADAR -> RadarPage(address, token)
+                    sub == MoreSub.AIR -> AirPage(address, token)
+                    sub == MoreSub.PUSH -> PushPage(address, token)
                     else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
                     onSave = { a, t ->
@@ -272,6 +320,16 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     onStorm = { on ->
                         stormOn = on
                         prefs.stormNotify = on
+                    },
+                    pauseBg = pauseBg,
+                    onPauseBg = { on ->
+                        pauseBg = on
+                        prefs.pauseInBackground = on
+                    },
+                    lockAfter = lockAfter,
+                    onLockAfter = { seconds ->
+                        lockAfter = seconds
+                        prefs.lockAfter = seconds
                     },
                     )
                 }
@@ -476,7 +534,15 @@ private fun SettingsPage(
     onTextScale: (Float) -> Unit,
     stormOn: Boolean,
     onStorm: (Boolean) -> Unit,
+    pauseBg: Boolean,
+    onPauseBg: (Boolean) -> Unit,
+    lockAfter: Int,
+    onLockAfter: (Int) -> Unit,
 ) {
+    val context = LocalContext.current
+    var lockNote by remember { mutableStateOf<String?>(null) }
+    var codeText by remember { mutableStateOf("") }
+    var codeNote by remember { mutableStateOf<String?>(null) }
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     var a by remember { mutableStateOf(address) }
     var t by remember { mutableStateOf(token) }
@@ -536,6 +602,99 @@ private fun SettingsPage(
                     },
                     colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
                 )
+            }
+        }
+
+        Section("Security and battery")
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("App lock", style = T.body, color = C.text)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppLock.CHOICES.forEach { (name, seconds) ->
+                        FilterChip(
+                            selected = lockAfter == seconds,
+                            onClick = {
+                                if (seconds >= 0 && !AppLock.deviceHasLock(context)) {
+                                    lockNote = "Set a screen lock (PIN, pattern, password or fingerprint) in your phone's settings first."
+                                } else {
+                                    lockNote = if (seconds >= 0) "Takes effect the next time the app starts." else null
+                                    onLockAfter(seconds)
+                                }
+                            },
+                            label = { Text(name, color = C.text) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = C.card,
+                                selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true, selected = lockAfter == seconds,
+                                borderColor = C.line, selectedBorderColor = C.cyan,
+                            ),
+                        )
+                    }
+                }
+                Text(
+                    "Uses your phone's own fingerprint, face, PIN, pattern or password. It also hides the app in the recent apps list.",
+                    style = T.label, color = C.muted,
+                )
+                lockNote?.let { Text(it, style = T.label, color = C.warn) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Pause refreshing in the background", style = T.body, color = C.text)
+                        Text(
+                            "The Live page stops updating while the app isn't on screen and catches up when you return. " +
+                                "The storm countdown above has its own switch.",
+                            style = T.label, color = C.muted,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = pauseBg, onCheckedChange = onPauseBg,
+                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                    )
+                }
+            }
+        }
+
+        Section("Move to a new phone")
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "A setup code holds your address and token. Copy it here, send it to yourself, and paste it on the new phone. " +
+                        "Treat it like a password.",
+                    style = T.label, color = C.muted,
+                )
+                Button(
+                    onClick = {
+                        if (a.isNotBlank() && t.isNotBlank()) {
+                            copyText(context, "Weather Lab setup code", SetupCode.make(a, t))
+                            codeNote = "Setup code copied."
+                        } else {
+                            codeNote = "Fill in the address and token first."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = C.card, contentColor = C.text),
+                ) { Text("Copy setup code") }
+                OutlinedTextField(
+                    value = codeText, onValueChange = { codeText = it }, label = { Text("Paste a setup code") },
+                    singleLine = true, colors = fieldColors, modifier = Modifier.fillMaxWidth(),
+                )
+                Button(
+                    onClick = {
+                        val found = SetupCode.read(codeText)
+                        if (found == null) {
+                            codeNote = "That isn't a Weather Lab setup code."
+                        } else {
+                            a = found.first
+                            t = found.second
+                            codeText = ""
+                            codeNote = "Address and token filled in. Tap Save and connect above."
+                        }
+                    },
+                    enabled = codeText.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
+                ) { Text("Use this code") }
+                codeNote?.let { Text(it, style = T.label, color = C.muted) }
             }
         }
 

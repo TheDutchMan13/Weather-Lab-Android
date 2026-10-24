@@ -103,7 +103,7 @@ internal fun <T> Fetch(address: String, token: String, key: Any, load: (WeatherL
         result == null -> LoadingCard()
         result.isFailure -> {
             val e = result.exceptionOrNull()
-            val message = if (e is ApiException && e.code == 404) "This page needs Weather Lab 0.35 or newer. Update Weather Lab on your PC."
+            val message = if (e is ApiException && e.code == 404) "This page needs a newer Weather Lab. Update Weather Lab on your PC."
             else e?.message ?: "Couldn't reach Weather Lab."
             ErrorBox(message, onRetry = { retry++ }, title = "Couldn't load this page")
         }
@@ -179,6 +179,10 @@ enum class MoreSub(val label: String) {
     RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
     DAYS("Daily History"), RECORDS("Records"), RANKINGS("Rankings"),
     STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),
+    ON_THIS_DAY("On This Day"), COMPARE("Compare"), MONTH("Monthly Card"), YEAR("My Year"),
+    MILESTONES("Season Milestones"), ANOMALIES("Anomalies"), ALERT_HISTORY("Alert History"),
+    FC_ACCURACY("Forecast Accuracy"), EXPORT("Export Data"), REWIND("Season Rewind"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air and Smoke"), PUSH("Phone Alerts"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String)
@@ -191,19 +195,34 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.WIND, "Where the wind comes from"),
             MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
             MoreItem(MoreSub.HEAT, "Heat index, advice and hot days"),
+            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
+            MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
+            MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
         ),
         "Rain and storms" to listOf(
             MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
             MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
             MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
+            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
         ),
         "History" to listOf(
             MoreItem(MoreSub.DAYS, "Yesterday, and any day of the last 60"),
             MoreItem(MoreSub.RECORDS, "All-time highs and lows"),
             MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
+            MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
+            MoreItem(MoreSub.COMPARE, "This year against last year"),
+            MoreItem(MoreSub.MONTH, "A card for any month"),
+            MoreItem(MoreSub.YEAR, "A year in review"),
+            MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
+            MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
+            MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
+            MoreItem(MoreSub.FC_ACCURACY, "How close the forecast highs were"),
+            MoreItem(MoreSub.REWIND, "Replay any past day"),
+            MoreItem(MoreSub.EXPORT, "Send your daily summaries as a CSV"),
         ),
         "App" to listOf(
             MoreItem(MoreSub.STATION, "Data health, sensors, batteries"),
+            MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
             MoreItem(MoreSub.WHATS_NEW, "Everything added"),
             MoreItem(MoreSub.SETTINGS, "Connection, notifications, look"),
         ),

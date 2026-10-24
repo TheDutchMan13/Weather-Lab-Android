@@ -95,6 +95,65 @@ data class Forecast(
     val hours: List<FcHour>, val alerts: List<FcAlert>,
 )
 
+// History pages (Weather Lab 0.37 and newer)
+data class OtdYear(val year: Int, val high: Double?, val low: Double?, val rain: Double?)
+data class OnThisDay(
+    val month: Int, val day: Int, val years: List<OtdYear>, val recordHigh: Double?, val recordLow: Double?,
+    val tempUnit: String, val rainUnit: String, val error: String?,
+)
+/** One month row of the comparison: year -> (average temperature, rain). */
+data class CmpMonth(val label: String, val values: Map<String, Pair<Double?, Double?>>)
+data class HeatYear(val year: Int, val days100: Int, val days110: Int)
+data class Compare(
+    val years: List<Int>, val months: List<CmpMonth>, val rainToDate: List<Pair<Int, Double?>>, val heat: List<HeatYear>,
+    val tempUnit: String, val rainUnit: String,
+)
+data class Extreme(val value: Double?, val date: String)
+data class DayBrief(val date: String, val high: Double?, val low: Double?, val rain: Double?)
+data class MonthCard(
+    val month: String, val found: Boolean, val daysWithData: Int, val averageHigh: Double?, val averageLow: Double?,
+    val hottest: Extreme?, val coldest: Extreme?, val wettest: Extreme?, val windiest: Extreme?,
+    val rainTotal: Double?, val rainyDays: Int, val daily: List<DayBrief>,
+    val tempUnit: String, val rainUnit: String, val windUnit: String, val error: String?,
+)
+data class Run(val days: Int, val from: String, val to: String)
+data class YearCard(
+    val year: Int, val found: Boolean, val daysWithData: Int, val rain: Double?, val rainyDays: Int,
+    val hottest: Extreme?, val coldest: Extreme?, val windiest: Extreme?,
+    val days90: Int, val days100: Int, val freezingNights: Int, val longestDry: Run?, val longestWet: Run?,
+    val years: List<Int>, val tempUnit: String, val rainUnit: String, val windUnit: String,
+)
+data class MsYear(val year: Int, val first: String, val last: String, val count: Int)
+data class Milestone(val label: String, val years: List<MsYear>)
+data class Anomaly(val label: String, val kind: String, val value: Double?, val usual: Double?, val unit: String, val time: String)
+data class Anomalies(val items: List<Anomaly>, val checked: List<String>)
+data class FaRow(val date: String, val forecast: Double?, val actual: Double?, val miss: Double?)
+data class ForecastAccuracy(val days: Int, val averageMiss: Double?, val bias: Double?, val rows: List<FaRow>, val unit: String)
+data class CsvExport(val filename: String, val csv: String)
+data class RwSeries(val label: String, val unit: String, val points: List<Pair<Long, Double>>)
+data class Rewind(val date: String, val found: Boolean, val series: List<RwSeries>, val error: String?)
+
+// Public-source pages
+data class ApRow(val label: String, val station: Double?, val airport: Double?, val unit: String)
+data class Airport(
+    val available: Boolean, val reason: String, val name: String, val isAirport: Boolean, val distance: Double?,
+    val distanceUnit: String, val time: String, val text: String, val rows: List<ApRow>,
+)
+data class TropicalStorm(val name: String, val cls: String, val wind: Double?, val distance: Double?, val direction: String, val move: String)
+data class Tropics(
+    val available: Boolean, val reason: String, val ok: Boolean, val checked: String, val storms: List<TropicalStorm>,
+    val windUnit: String, val distanceUnit: String,
+)
+data class RadarInfo(
+    val available: Boolean, val reason: String, val usImage: String, val usPage: String,
+    val localImage: String?, val localLoop: String?, val localPage: String?, val station: String?,
+)
+data class Pollutant(val label: String, val aqi: Int)
+data class AirInfo(
+    val available: Boolean, val reason: String, val aqi: Int, val category: String, val area: String, val pollutants: List<Pollutant>,
+)
+data class PushInfo(val server: String, val topic: String)
+
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
 /** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET with the token in the header. */
@@ -339,6 +398,157 @@ class WeatherLabApi(address: String, private val token: String) {
             j.each("hours") { FcHour(it.optString("start"), it.int("temp"), it.optString("short"), it.int("rain_chance")) },
             j.each("alerts") { FcAlert(it.optString("event"), it.optString("severity"), it.optString("headline")) },
         )
+    }
+
+    private fun JSONObject.text(key: String): String? = if (!has(key) || isNull(key)) null else optString(key)
+
+    private fun JSONObject.extreme(key: String): Extreme? =
+        optJSONObject(key)?.let { Extreme(it.num("value"), it.optString("date")) }
+
+    private fun JSONObject.runOf(key: String): Run? =
+        optJSONObject(key)?.let { Run(it.optInt("days"), it.optString("from"), it.optString("to")) }
+
+    private fun JSONObject.ints(key: String): List<Int> {
+        val a = optJSONArray(key) ?: return emptyList()
+        return (0 until a.length()).map { a.getInt(it) }
+    }
+
+    private fun JSONObject.strings(key: String): List<String> {
+        val a = optJSONArray(key) ?: return emptyList()
+        return (0 until a.length()).map { a.getString(it) }
+    }
+
+    /** which is "today" or a month and day such as 10-23. */
+    fun onThisDay(which: String): OnThisDay {
+        val j = get("/api/v1/onthisday/$which")
+        return OnThisDay(
+            j.optInt("month"), j.optInt("day"),
+            j.each("years") { OtdYear(it.optInt("year"), it.num("high"), it.num("low"), it.num("rain")) },
+            j.num("record_high"), j.num("record_low"), j.optString("temp_unit"), j.optString("rain_unit"), j.text("error"),
+        )
+    }
+
+    fun compare(): Compare {
+        val j = get("/api/v1/compare")
+        return Compare(
+            j.ints("years"),
+            j.each("months") { m ->
+                val v = m.optJSONObject("values")
+                val map = LinkedHashMap<String, Pair<Double?, Double?>>()
+                v?.keys()?.forEach { y -> v.getJSONObject(y).let { map[y] = Pair(it.num("temp"), it.num("rain")) } }
+                CmpMonth(m.optString("label"), map)
+            },
+            j.each("rain_to_date") { Pair(it.optInt("year"), it.num("rain")) },
+            j.each("heat_days") { HeatYear(it.optInt("year"), it.optInt("days_100"), it.optInt("days_110")) },
+            j.optString("temp_unit"), j.optString("rain_unit"),
+        )
+    }
+
+    /** month is like 2026-10. */
+    fun monthCard(month: String): MonthCard {
+        val j = get("/api/v1/month/$month")
+        return MonthCard(
+            month, j.optBoolean("found"), j.optInt("days_with_data"), j.num("average_high"), j.num("average_low"),
+            j.extreme("hottest"), j.extreme("coldest"), j.extreme("wettest"), j.extreme("windiest"),
+            j.num("rain_total"), j.optInt("rainy_days"),
+            j.each("daily") { DayBrief(it.optString("date"), it.num("high"), it.num("low"), it.num("rain")) },
+            j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"), j.text("error"),
+        )
+    }
+
+    fun yearCard(year: Int): YearCard {
+        val j = get("/api/v1/year/$year")
+        return YearCard(
+            year, j.optBoolean("found"), j.optInt("days_with_data"), j.num("rain"), j.optInt("rainy_days"),
+            j.extreme("hottest"), j.extreme("coldest"), j.extreme("windiest"),
+            j.optInt("days_90"), j.optInt("days_100"), j.optInt("freezing_nights"), j.runOf("longest_dry"), j.runOf("longest_wet"),
+            j.ints("years"), j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"),
+        )
+    }
+
+    fun milestones(): List<Milestone> = get("/api/v1/milestones").each("milestones") { m ->
+        Milestone(m.optString("label"), m.each("years") { MsYear(it.optInt("year"), it.optString("first"), it.optString("last"), it.optInt("count")) })
+    }
+
+    fun anomalies(): Anomalies {
+        val j = get("/api/v1/anomalies")
+        return Anomalies(
+            j.each("anomalies") { Anomaly(it.optString("label"), it.optString("kind"), it.num("value"), it.num("usual"), it.optString("unit"), it.optString("time")) },
+            j.strings("checked"),
+        )
+    }
+
+    fun alertHistory(): List<Alert> = get("/api/v1/alerts/history").each("alerts") { Alert(it.getLong("ts"), it.getString("text")) }
+
+    fun forecastAccuracy(): ForecastAccuracy {
+        val j = get("/api/v1/forecast/accuracy")
+        return ForecastAccuracy(
+            j.optInt("days"), j.num("average_miss"), j.num("bias"),
+            j.each("rows") { FaRow(it.optString("date"), it.num("forecast"), it.num("actual"), it.num("miss")) }, j.optString("unit"),
+        )
+    }
+
+    fun exportDaily(): CsvExport {
+        val j = get("/api/v1/export/daily")
+        return CsvExport(j.optString("filename", "weatherlab-daily.csv"), j.optString("csv"))
+    }
+
+    /** date is like 2026-10-20. */
+    fun rewind(date: String): Rewind {
+        val j = get("/api/v1/rewind/$date")
+        return Rewind(
+            date, j.optBoolean("found"),
+            j.each("series") { s ->
+                val pts = s.optJSONArray("points")
+                RwSeries(
+                    s.optString("label"), s.optString("unit"),
+                    if (pts == null) emptyList() else (0 until pts.length()).mapNotNull { i ->
+                        val p = pts.optJSONArray(i) ?: return@mapNotNull null
+                        if (p.length() < 2 || p.isNull(1)) null else Pair(p.getLong(0), p.getDouble(1))
+                    },
+                )
+            },
+            j.text("error"),
+        )
+    }
+
+    fun airport(): Airport {
+        val j = get("/api/v1/airport")
+        return Airport(
+            j.optBoolean("available"), j.optString("reason"), j.optString("name"), j.optBoolean("airport"), j.num("distance"),
+            j.optString("distance_unit"), j.optString("time"), j.optString("text"),
+            j.each("rows") { ApRow(it.optString("label"), it.num("station"), it.num("airport"), it.optString("unit")) },
+        )
+    }
+
+    fun tropics(): Tropics {
+        val j = get("/api/v1/tropics")
+        return Tropics(
+            j.optBoolean("available"), j.optString("reason"), j.optBoolean("ok", true), j.optString("checked"),
+            j.each("storms") { TropicalStorm(it.optString("name"), it.optString("class"), it.num("wind"), it.num("distance"), it.optString("direction"), it.optString("move")) },
+            j.optString("wind_unit"), j.optString("distance_unit"),
+        )
+    }
+
+    fun radar(): RadarInfo {
+        val j = get("/api/v1/radar")
+        return RadarInfo(
+            j.optBoolean("available"), j.optString("reason"), j.optString("us_image"), j.optString("us_page"),
+            j.text("local_image"), j.text("local_loop"), j.text("local_page"), j.text("station"),
+        )
+    }
+
+    fun air(): AirInfo {
+        val j = get("/api/v1/air")
+        return AirInfo(
+            j.optBoolean("available"), j.optString("reason"), j.optInt("aqi"), j.optString("category"), j.optString("area"),
+            j.each("pollutants") { Pollutant(it.optString("label"), it.optInt("aqi")) },
+        )
+    }
+
+    fun pushInfo(): PushInfo {
+        val j = get("/api/v1/push")
+        return PushInfo(j.optString("server"), j.optString("topic"))
     }
 
     /** The extra cards are optional: any trouble (an older Weather Lab, a hiccup) just leaves that card out. */

@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,11 +24,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -50,7 +56,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,6 +69,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +92,9 @@ class MainActivity : ComponentActivity() {
         StormWatch.schedule(this)
         setContent {
             var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
+            var textScale by remember { mutableFloatStateOf(prefs.textScale) }
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * textScale)) {
             WeatherLabTheme(scheme) {
                 // Status and navigation bar icons follow the scheme, not the phone's own dark mode.
                 val view = LocalView.current
@@ -91,10 +104,14 @@ class MainActivity : ComponentActivity() {
                     c.isAppearanceLightStatusBars = light
                     c.isAppearanceLightNavigationBars = light
                 }
-                WeatherLabApp(prefs, scheme) {
+                WeatherLabApp(prefs, scheme, textScale, onTextScale = {
+                    textScale = it
+                    prefs.textScale = it
+                }) {
                     scheme = it
                     prefs.scheme = it.key
                 }
+            }
             }
         }
     }
@@ -104,13 +121,14 @@ private val WHEN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a
 
 private enum class Tab(val label: String, val icon: ImageVector, val selected: ImageVector) {
     LIVE("Live", Icons.Outlined.Cloud, Icons.Filled.Cloud),
-    ALERTS("Alerts", Icons.Outlined.Bolt, Icons.Filled.Bolt),
-    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+    STORM("Storm", Icons.Outlined.Bolt, Icons.Filled.Bolt),
+    ALERTS("Alerts", Icons.Outlined.Notifications, Icons.Filled.Notifications),
+    MORE("More", Icons.Outlined.Apps, Icons.Filled.Apps),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
+fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (Float) -> Unit, onScheme: (Scheme) -> Unit) {
     var address by remember { mutableStateOf(prefs.address) }
     var token by remember { mutableStateOf(prefs.token) }
     var snapshot by remember { mutableStateOf<Snapshot?>(null) }
@@ -119,7 +137,19 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
     var reloadCount by remember { mutableIntStateOf(0) }
     var stormOn by remember { mutableStateOf(prefs.stormNotify) }
     val context = LocalContext.current
-    var tab by remember { mutableStateOf(if (prefs.address.isBlank() || prefs.token.isBlank()) Tab.SETTINGS else Tab.LIVE) }
+    val needsSetup = prefs.address.isBlank() || prefs.token.isBlank()
+    var tab by remember { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }
+    var sub by remember { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
+    var dayKey by remember { mutableStateOf<String?>(null) }
+    val inSub = tab == Tab.MORE && sub != MoreSub.MENU
+    val goBack: () -> Unit = {
+        if (dayKey != null) {
+            dayKey = null
+        } else {
+            sub = MoreSub.MENU
+        }
+    }
+    BackHandler(enabled = inSub) { goBack() }
 
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
     LaunchedEffect(address, token, reloadCount, stormOn) {
@@ -144,7 +174,17 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
         containerColor = C.bg,
         topBar = {
             TopAppBar(
-                title = { Text(tab.label, fontSize = 22.sp, fontWeight = FontWeight.W800) },
+                title = {
+                    val title = if (tab != Tab.MORE) tab.label else if (dayKey != null) "Day" else sub.label
+                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.W800)
+                },
+                navigationIcon = {
+                    if (inSub) {
+                        IconButton(onClick = { goBack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = C.bg,
                     scrolledContainerColor = C.bg,
@@ -159,6 +199,10 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                     NavigationBarItem(
                         selected = tab == t,
                         onClick = {
+                            if (t == Tab.MORE && tab == Tab.MORE) {
+                                sub = MoreSub.MENU
+                                dayKey = null
+                            }
                             tab = t
                             if (t == Tab.LIVE) reloadCount++
                         },
@@ -185,10 +229,20 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                     snapshot = snapshot, error = error, loading = loading,
                     configured = address.isNotBlank() && token.isNotBlank(),
                     onRefresh = { reloadCount++ },
-                    onOpenSettings = { tab = Tab.SETTINGS },
+                    onOpenSettings = {
+                        tab = Tab.MORE
+                        sub = MoreSub.SETTINGS
+                    },
                 )
+                Tab.STORM -> StormPage(snapshot, stormOn)
                 Tab.ALERTS -> AlertsPage(snapshot)
-                Tab.SETTINGS -> SettingsPage(
+                Tab.MORE -> when {
+                    sub == MoreSub.MENU -> MorePage { sub = it }
+                    sub == MoreSub.CHARTS -> ChartsPage(address, token)
+                    sub == MoreSub.DAYS && dayKey == null -> DaysPage(address, token) { dayKey = it }
+                    sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
+                    sub == MoreSub.RECORDS -> RecordsPage(address, token)
+                    else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
                     onSave = { a, t ->
                         prefs.address = a
@@ -199,12 +253,15 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                         tab = Tab.LIVE
                     },
                     onScheme = onScheme,
+                    textScale = textScale,
+                    onTextScale = onTextScale,
                     stormOn = stormOn,
                     onStorm = { on ->
                         stormOn = on
                         prefs.stormNotify = on
                     },
-                )
+                    )
+                }
             }
         }
     }
@@ -402,6 +459,8 @@ private fun SettingsPage(
     snapshot: Snapshot?,
     onSave: (String, String) -> Unit,
     onScheme: (Scheme) -> Unit,
+    textScale: Float,
+    onTextScale: (Float) -> Unit,
     stormOn: Boolean,
     onStorm: (Boolean) -> Unit,
 ) {
@@ -469,6 +528,7 @@ private fun SettingsPage(
 
         Section("Appearance")
         Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Scheme.entries.forEach { s ->
                     FilterChip(
@@ -485,6 +545,29 @@ private fun SettingsPage(
                         ),
                     )
                 }
+            }
+            Text("Text size", style = T.body, color = C.text)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Normal" to 1.0f, "Large" to 1.15f, "Largest" to 1.3f).forEach { (name, size) ->
+                    FilterChip(
+                        selected = textScale == size,
+                        onClick = { onTextScale(size) },
+                        label = { Text(name, color = C.text) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = C.card,
+                            selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true, selected = textScale == size,
+                            borderColor = C.line, selectedBorderColor = C.cyan,
+                        ),
+                    )
+                }
+            }
+            Text(
+                "Makes all text in the app bigger. It adds to the font size set in your phone settings.",
+                style = T.label, color = C.muted,
+            )
             }
         }
 

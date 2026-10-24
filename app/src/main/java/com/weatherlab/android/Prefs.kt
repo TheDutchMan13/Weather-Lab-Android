@@ -31,4 +31,9 @@ class Prefs(context: Context) {
     var stormNotify: Boolean
         get() = prefs.getBoolean("storm_notify", true)
         set(value) = prefs.edit().putBoolean("storm_notify", value).apply()
+
+    /** Text size chosen in Settings: 1.0 normal, 1.15 large, 1.3 largest. Adds to the phone's own font size. */
+    var textScale: Float
+        get() = prefs.getFloat("text_scale", 1.0f)
+        set(value) = prefs.edit().putFloat("text_scale", value).apply()
 }

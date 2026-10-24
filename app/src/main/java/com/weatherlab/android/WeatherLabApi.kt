@@ -35,13 +35,65 @@ data class Snapshot(
 
 /** One day of the 7 and 30 day charts. Missing figures are null. */
 data class ChartDay(val date: String, val high: Double?, val low: Double?, val avg: Double?, val rain: Double?, val gust: Double?)
-data class Charts(val days: List<ChartDay>, val tempUnit: String, val rainUnit: String, val windUnit: String)
+data class Charts(
+    val days: List<ChartDay>, val tempUnit: String, val rainUnit: String, val windUnit: String,
+    /** Temperature readings (timestamp in seconds, value): hourly for 7 days, every 3 hours for 30. */
+    val tempPoints: List<Pair<Long, Double>> = emptyList(),
+)
 data class DayRow(val date: String, val high: Double?, val low: Double?, val rain: Double?)
 data class DayList(val days: List<DayRow>, val tempUnit: String, val rainUnit: String)
 data class DayValue(val label: String, val value: Double?, val unit: String)
 /** Every figure kept for one day. found is false when Weather Lab has no summary for that date. */
 data class DayDetail(val date: String, val found: Boolean, val estimated: Boolean, val partial: Boolean, val values: List<DayValue>)
 data class RecordItem(val label: String, val value: Double?, val unit: String, val date: String, val estimated: Boolean)
+
+data class RankItem(val date: String, val value: Double?)
+data class Ranking(val label: String, val unit: String, val items: List<RankItem>)
+data class RainDay(val date: String, val rain: Double?)
+data class RainYear(val year: Int, val total: Double?, val rainyDays: Int)
+data class RainMonth(
+    val month: String, val days: List<RainDay>, val total: Double?, val rainyDays: Int, val unit: String,
+    val years: List<RainYear>,
+)
+data class RainEvent(val start: Long, val end: Long, val minutes: Int, val rain: Double?, val peakRate: Double?)
+data class RainEvents(val events: List<RainEvent>, val rainUnit: String, val rateUnit: String)
+data class WindDir(val name: String, val bins: List<Double>, val percent: Double)
+data class WindRose(
+    val days: Int, val total: Int, val dominant: String?, val bins: List<String>, val directions: List<WindDir>,
+    val average: Double?, val strongestGust: Double?, val unit: String,
+)
+data class LightningDay(val date: String, val strikes: Int, val closest: Double?)
+data class LightningDays(val days: List<LightningDay>, val unit: String)
+data class Burn(val skin: String, val minutes: Int?)
+data class SunInfo(
+    val uvNow: Double?, val uvNowWord: String?, val uvPeak: Double?, val uvPeakWord: String?,
+    val sunshineToday: Double, val sunshineWeek: Double, val sunrise: String?, val sunset: String?,
+    val burnNow: List<Burn>, val burnPeak: List<Burn>,
+)
+data class HeatLevel(val level: String, val from: Double?, val advice: String)
+data class HeatInfo(
+    val heatIndex: Double?, val level: String, val advice: String, val temp: Double?, val peakToday: Double?,
+    val peakTime: String?, val days100: Int, val days105: Int, val days110: Int, val year: Int,
+    val levels: List<HeatLevel>, val unit: String,
+)
+data class SensorHealth(val label: String, val presentPercent: Double, val ageSeconds: Long?)
+data class Radio(val name: String, val battery: String, val batteryState: String, val signal: String, val signalState: String)
+data class Gap(val start: Long, val end: Long, val minutes: Int)
+data class StationInfo(
+    val status: String, val statusText: String, val completeness: Double, val gapCount: Int, val longestGap: Int,
+    val gaps: List<Gap>, val sensors: List<SensorHealth>, val radios: List<Radio>?, val warnings: List<String>,
+)
+data class NewsEntry(val version: String, val date: String, val items: List<String>)
+data class FcPeriod(
+    val name: String, val isDay: Boolean, val temp: Int?, val short: String, val detail: String,
+    val rainChance: Int?, val wind: String,
+)
+data class FcHour(val start: String, val temp: Int?, val short: String, val rainChance: Int?)
+data class FcAlert(val event: String, val severity: String, val headline: String)
+data class Forecast(
+    val available: Boolean, val reason: String, val unit: String, val periods: List<FcPeriod>,
+    val hours: List<FcHour>, val alerts: List<FcAlert>,
+)
 
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
@@ -149,7 +201,12 @@ class WeatherLabApi(address: String, private val token: String) {
             val d = list.getJSONObject(i)
             ChartDay(d.optString("date"), d.num("high"), d.num("low"), d.num("avg"), d.num("rain"), d.num("gust"))
         }
-        return Charts(out, j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"))
+        val pts = j.optJSONArray("temp_points")
+        val points = if (pts == null) emptyList() else (0 until pts.length()).mapNotNull { i ->
+            val p = pts.optJSONArray(i) ?: return@mapNotNull null
+            if (p.length() < 2 || p.isNull(1)) null else Pair(p.getLong(0), p.getDouble(1))
+        }
+        return Charts(out, j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"), points)
     }
 
     fun days(): DayList {
@@ -181,6 +238,107 @@ class WeatherLabApi(address: String, private val token: String) {
             val r = list.getJSONObject(i)
             RecordItem(r.optString("label"), r.num("value"), r.optString("unit"), r.optString("date"), r.optBoolean("estimated"))
         }
+    }
+
+    private fun JSONObject.int(key: String): Int? = if (!has(key) || isNull(key)) null else optInt(key)
+
+    private fun <T> JSONObject.each(key: String, f: (JSONObject) -> T): List<T> {
+        val list = optJSONArray(key) ?: return emptyList()
+        return (0 until list.length()).map { f(list.getJSONObject(it)) }
+    }
+
+    fun rankings(): List<Ranking> = get("/api/v1/rankings").each("rankings") { r ->
+        Ranking(r.optString("label"), r.optString("unit"), r.each("items") { RankItem(it.optString("date"), it.num("value")) })
+    }
+
+    /** month is like 2026-10. */
+    fun rainMonth(month: String): RainMonth {
+        val j = get("/api/v1/rain/calendar/$month")
+        return RainMonth(
+            j.optString("month"), j.each("days") { RainDay(it.optString("date"), it.num("rain")) },
+            j.num("total"), j.optInt("rainy_days"), j.optString("unit"),
+            j.each("years") { RainYear(it.optInt("year"), it.num("total"), it.optInt("rainy_days")) },
+        )
+    }
+
+    fun rainEvents(): RainEvents {
+        val j = get("/api/v1/rain/events")
+        return RainEvents(
+            j.each("events") { RainEvent(it.getLong("start"), it.getLong("end"), it.optInt("minutes"), it.num("rain"), it.num("peak_rate")) },
+            j.optString("rain_unit"), j.optString("rate_unit"),
+        )
+    }
+
+    /** days is 1, 7 or 30. */
+    fun windRose(days: Int): WindRose {
+        val j = get("/api/v1/wind/$days")
+        val bins = j.optJSONArray("bins")
+        return WindRose(
+            days, j.optInt("total"), if (j.isNull("dominant")) null else j.optString("dominant"),
+            if (bins == null) emptyList() else (0 until bins.length()).map { bins.getString(it) },
+            j.each("directions") { d ->
+                val b = d.optJSONArray("bins")
+                WindDir(d.optString("name"), if (b == null) emptyList() else (0 until b.length()).map { b.getDouble(it) }, d.optDouble("percent"))
+            },
+            j.num("average"), j.num("strongest_gust"), j.optString("unit"),
+        )
+    }
+
+    fun lightningDays(): LightningDays {
+        val j = get("/api/v1/lightning/days")
+        return LightningDays(j.each("days") { LightningDay(it.optString("date"), it.optInt("strikes"), it.num("closest")) }, j.optString("unit"))
+    }
+
+    fun sun(): SunInfo {
+        val j = get("/api/v1/sun")
+        fun burns(key: String) = j.each(key) { Burn(it.optString("skin"), it.int("minutes")) }
+        return SunInfo(
+            j.num("uv_now"), if (j.isNull("uv_now_word")) null else j.optString("uv_now_word"),
+            j.num("uv_peak"), if (j.isNull("uv_peak_word")) null else j.optString("uv_peak_word"),
+            j.optDouble("sunshine_today_hours"), j.optDouble("sunshine_week_hours"),
+            if (j.isNull("sunrise")) null else j.optString("sunrise"), if (j.isNull("sunset")) null else j.optString("sunset"),
+            burns("burn_now"), burns("burn_peak"),
+        )
+    }
+
+    fun heat(): HeatInfo {
+        val j = get("/api/v1/heat")
+        return HeatInfo(
+            j.num("heat_index"), j.optString("level"), j.optString("advice"), j.num("temp"), j.num("peak_today"),
+            if (j.isNull("peak_time")) null else j.optString("peak_time"),
+            j.optInt("days_100"), j.optInt("days_105"), j.optInt("days_110"), j.optInt("year"),
+            j.each("levels") { HeatLevel(it.optString("level"), it.num("from"), it.optString("advice")) }, j.optString("unit"),
+        )
+    }
+
+    fun station(): StationInfo {
+        val j = get("/api/v1/station")
+        val radios = if (j.isNull("radios")) null else j.each("radios") {
+            Radio(it.optString("name"), it.optString("battery"), it.optString("battery_state"), it.optString("signal"), it.optString("signal_state"))
+        }
+        val warnings = j.optJSONArray("warnings")
+        return StationInfo(
+            j.optString("status"), j.optString("status_text"), j.optDouble("completeness_percent"),
+            j.optInt("gap_count"), j.optInt("longest_gap_minutes"),
+            j.each("gaps") { Gap(it.getLong("start"), it.getLong("end"), it.optInt("minutes")) },
+            j.each("sensors") { SensorHealth(it.optString("label"), it.optDouble("present_percent"), if (it.isNull("age_seconds")) null else it.optLong("age_seconds")) },
+            radios, if (warnings == null) emptyList() else (0 until warnings.length()).map { warnings.getString(it) },
+        )
+    }
+
+    fun whatsNew(): List<NewsEntry> = get("/api/v1/whatsnew").each("entries") { e ->
+        val items = e.optJSONArray("items")
+        NewsEntry(e.optString("version"), e.optString("date"), if (items == null) emptyList() else (0 until items.length()).map { items.getString(it) })
+    }
+
+    fun forecast(): Forecast {
+        val j = get("/api/v1/forecast")
+        return Forecast(
+            j.optBoolean("available"), j.optString("reason"), j.optString("unit"),
+            j.each("periods") { FcPeriod(it.optString("name"), it.optBoolean("is_day"), it.int("temp"), it.optString("short"), it.optString("detail"), it.int("rain_chance"), it.optString("wind")) },
+            j.each("hours") { FcHour(it.optString("start"), it.int("temp"), it.optString("short"), it.int("rain_chance")) },
+            j.each("alerts") { FcAlert(it.optString("event"), it.optString("severity"), it.optString("headline")) },
+        )
     }
 
     /** The extra cards are optional: any trouble (an older Weather Lab, a hiccup) just leaves that card out. */

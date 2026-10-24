@@ -50,6 +50,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -72,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -195,6 +198,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 snapshot = withContext(Dispatchers.IO) { WeatherLabApi(address, token).snapshot() }
                 error = null
                 StormWatch.update(context, snapshot?.storm, stormOn)
+                snapshot?.let { WearSync.send(context, it) }
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't reach Weather Lab."
             }
@@ -205,6 +209,26 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
 
     // The Alerts tab shows a badge when something was logged in the last 24 hours, like the Storm tab on the phone app.
     val recentAlerts = snapshot?.alerts.orEmpty().count { System.currentTimeMillis() / 1000 - it.ts < 24 * 3600 }
+
+    val wide = LocalConfiguration.current.screenWidthDp >= 720
+    val selectTab: (Tab) -> Unit = { t ->
+        if (t == Tab.MORE && tab == Tab.MORE) {
+            sub = MoreSub.MENU
+            dayKey = null
+        }
+        tab = t
+        if (t == Tab.LIVE) reloadCount++
+    }
+    val tabIcon: @Composable (Tab) -> Unit = { t ->
+        val icon = if (tab == t) t.selected else t.icon
+        if (t == Tab.ALERTS && recentAlerts > 0) {
+            BadgedBox(badge = { Badge(containerColor = C.bad) { Text("Alert") } }) {
+                Icon(icon, contentDescription = t.label)
+            }
+        } else {
+            Icon(icon, contentDescription = t.label)
+        }
+    }
 
     Scaffold(
         containerColor = C.bg,
@@ -230,38 +254,38 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = C.card) {
-                Tab.entries.forEach { t ->
-                    NavigationBarItem(
-                        selected = tab == t,
-                        onClick = {
-                            if (t == Tab.MORE && tab == Tab.MORE) {
-                                sub = MoreSub.MENU
-                                dayKey = null
-                            }
-                            tab = t
-                            if (t == Tab.LIVE) reloadCount++
-                        },
-                        icon = {
-                            val icon = if (tab == t) t.selected else t.icon
-                            if (t == Tab.ALERTS && recentAlerts > 0) {
-                                BadgedBox(badge = { Badge(containerColor = C.bad) { Text("Alert") } }) {
-                                    Icon(icon, contentDescription = t.label)
-                                }
-                            } else {
-                                Icon(icon, contentDescription = t.label)
-                            }
-                        },
-                        label = { Text(t.label) },
-                        colors = navItemColors(),
-                    )
+            if (!wide) {
+                NavigationBar(containerColor = C.card) {
+                    Tab.entries.forEach { t ->
+                        NavigationBarItem(
+                            selected = tab == t,
+                            onClick = { selectTab(t) },
+                            icon = { tabIcon(t) },
+                            label = { Text(t.label) },
+                            colors = navItemColors(),
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Row(Modifier.fillMaxSize().padding(padding)) {
+        if (wide) {
+            NavigationRail(containerColor = C.card) {
+                Tab.entries.forEach { t ->
+                    NavigationRailItem(
+                        selected = tab == t,
+                        onClick = { selectTab(t) },
+                        icon = { tabIcon(t) },
+                        label = { Text(t.label) },
+                        colors = railItemColors(),
+                    )
+                }
+            }
+        }
+        Column(Modifier.weight(1f).fillMaxSize()) {
             when (tab) {
-                Tab.LIVE -> LivePage(
+                Tab.LIVE -> Paned(wide, { ChartsPage(address, token) }) { LivePage(
                     snapshot = snapshot, error = error, loading = loading,
                     configured = address.isNotBlank() && token.isNotBlank(),
                     onRefresh = { reloadCount++ },
@@ -269,9 +293,9 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         tab = Tab.MORE
                         sub = MoreSub.SETTINGS
                     },
-                )
-                Tab.FORECAST -> ForecastPage(address, token)
-                Tab.STORM -> StormPage(snapshot, stormOn)
+                ) }
+                Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) { ForecastPage(address, token) }
+                Tab.STORM -> Paned(wide, { LightningPage(address, token) }) { StormPage(snapshot, stormOn) }
                 Tab.ALERTS -> AlertsPage(snapshot)
                 Tab.MORE -> when {
                     sub == MoreSub.MENU -> MorePage { sub = it }
@@ -335,9 +359,9 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 }
             }
         }
+        }
     }
 }
-
 // ---------------------------------------------------------------------------------------------------------------------
 // Live
 

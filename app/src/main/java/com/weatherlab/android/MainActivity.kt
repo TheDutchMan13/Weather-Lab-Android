@@ -56,7 +56,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,6 +69,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,6 +92,9 @@ class MainActivity : ComponentActivity() {
         StormWatch.schedule(this)
         setContent {
             var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
+            var textScale by remember { mutableFloatStateOf(prefs.textScale) }
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * textScale)) {
             WeatherLabTheme(scheme) {
                 // Status and navigation bar icons follow the scheme, not the phone's own dark mode.
                 val view = LocalView.current
@@ -97,10 +104,14 @@ class MainActivity : ComponentActivity() {
                     c.isAppearanceLightStatusBars = light
                     c.isAppearanceLightNavigationBars = light
                 }
-                WeatherLabApp(prefs, scheme) {
+                WeatherLabApp(prefs, scheme, textScale, onTextScale = {
+                    textScale = it
+                    prefs.textScale = it
+                }) {
                     scheme = it
                     prefs.scheme = it.key
                 }
+            }
             }
         }
     }
@@ -117,7 +128,7 @@ private enum class Tab(val label: String, val icon: ImageVector, val selected: I
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
+fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (Float) -> Unit, onScheme: (Scheme) -> Unit) {
     var address by remember { mutableStateOf(prefs.address) }
     var token by remember { mutableStateOf(prefs.token) }
     var snapshot by remember { mutableStateOf<Snapshot?>(null) }
@@ -242,6 +253,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                         tab = Tab.LIVE
                     },
                     onScheme = onScheme,
+                    textScale = textScale,
+                    onTextScale = onTextScale,
                     stormOn = stormOn,
                     onStorm = { on ->
                         stormOn = on
@@ -446,6 +459,8 @@ private fun SettingsPage(
     snapshot: Snapshot?,
     onSave: (String, String) -> Unit,
     onScheme: (Scheme) -> Unit,
+    textScale: Float,
+    onTextScale: (Float) -> Unit,
     stormOn: Boolean,
     onStorm: (Boolean) -> Unit,
 ) {
@@ -513,6 +528,7 @@ private fun SettingsPage(
 
         Section("Appearance")
         Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Scheme.entries.forEach { s ->
                     FilterChip(
@@ -529,6 +545,29 @@ private fun SettingsPage(
                         ),
                     )
                 }
+            }
+            Text("Text size", style = T.body, color = C.text)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Normal" to 1.0f, "Large" to 1.15f, "Largest" to 1.3f).forEach { (name, size) ->
+                    FilterChip(
+                        selected = textScale == size,
+                        onClick = { onTextScale(size) },
+                        label = { Text(name, color = C.text) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = C.card,
+                            selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true, selected = textScale == size,
+                            borderColor = C.line, selectedBorderColor = C.cyan,
+                        ),
+                    )
+                }
+            }
+            Text(
+                "Makes all text in the app bigger. It adds to the font size set in your phone settings.",
+                style = T.label, color = C.muted,
+            )
             }
         }
 

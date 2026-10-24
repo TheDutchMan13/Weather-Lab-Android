@@ -597,6 +597,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.2", "October 24, 2026",
+        listOf(
+            "The Weather Lab logo shows in the top bar on every screen.",
+        ),
+    ),
+    NewsEntry(
         "0.7.1", "October 24, 2026",
         listOf(
             "New app icon: the Weather Lab badge logo.",

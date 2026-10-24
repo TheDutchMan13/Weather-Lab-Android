@@ -36,4 +36,14 @@ class Prefs(context: Context) {
     var textScale: Float
         get() = prefs.getFloat("text_scale", 1.0f)
         set(value) = prefs.edit().putFloat("text_scale", value).apply()
+
+    /** App lock: -1 off, 0 every time the app is reopened, otherwise seconds away before it locks. */
+    var lockAfter: Int
+        get() = prefs.getInt("lock_after", -1)
+        set(value) = prefs.edit().putInt("lock_after", value).apply()
+
+    /** When on, the once-a-minute refresh waits until the app is on screen again. */
+    var pauseInBackground: Boolean
+        get() = prefs.getBoolean("pause_background", false)
+        set(value) = prefs.edit().putBoolean("pause_background", value).apply()
 }

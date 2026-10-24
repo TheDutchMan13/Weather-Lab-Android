@@ -33,6 +33,16 @@ data class Snapshot(
     val storm: Storm? = null,
 )
 
+/** One day of the 7 and 30 day charts. Missing figures are null. */
+data class ChartDay(val date: String, val high: Double?, val low: Double?, val avg: Double?, val rain: Double?, val gust: Double?)
+data class Charts(val days: List<ChartDay>, val tempUnit: String, val rainUnit: String, val windUnit: String)
+data class DayRow(val date: String, val high: Double?, val low: Double?, val rain: Double?)
+data class DayList(val days: List<DayRow>, val tempUnit: String, val rainUnit: String)
+data class DayValue(val label: String, val value: Double?, val unit: String)
+/** Every figure kept for one day. found is false when Weather Lab has no summary for that date. */
+data class DayDetail(val date: String, val found: Boolean, val estimated: Boolean, val partial: Boolean, val values: List<DayValue>)
+data class RecordItem(val label: String, val value: Double?, val unit: String, val date: String, val estimated: Boolean)
+
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
 /** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET with the token in the header. */
@@ -127,6 +137,50 @@ class WeatherLabApi(address: String, private val token: String) {
             last, j.optInt("strikes_10m"), j.optInt("strikes_30m"), j.optInt("strikes_today"),
             j.optString("trend", "none"),
         )
+    }
+
+    private fun JSONObject.num(key: String): Double? = if (!has(key) || isNull(key)) null else optDouble(key)
+
+    /** days is 7 or 30. Needs Weather Lab 0.35 or newer. */
+    fun charts(days: Int): Charts {
+        val j = get("/api/v1/charts/$days")
+        val list = j.optJSONArray("days")
+        val out = if (list == null) emptyList() else (0 until list.length()).map { i ->
+            val d = list.getJSONObject(i)
+            ChartDay(d.optString("date"), d.num("high"), d.num("low"), d.num("avg"), d.num("rain"), d.num("gust"))
+        }
+        return Charts(out, j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"))
+    }
+
+    fun days(): DayList {
+        val j = get("/api/v1/days")
+        val list = j.optJSONArray("days")
+        val out = if (list == null) emptyList() else (0 until list.length()).map { i ->
+            val d = list.getJSONObject(i)
+            DayRow(d.optString("date"), d.num("high"), d.num("low"), d.num("rain"))
+        }
+        return DayList(out, j.optString("temp_unit"), j.optString("rain_unit"))
+    }
+
+    /** which is "yesterday" or a date such as 2026-10-20. */
+    fun day(which: String): DayDetail {
+        val j = get("/api/v1/days/$which")
+        val list = j.optJSONArray("values")
+        val values = if (list == null) emptyList() else (0 until list.length()).map { i ->
+            val v = list.getJSONObject(i)
+            DayValue(v.optString("label"), v.num("value"), v.optString("unit"))
+        }
+        return DayDetail(
+            j.optString("date"), j.optBoolean("found"), j.optBoolean("estimated"), j.optBoolean("partial"), values,
+        )
+    }
+
+    fun records(): List<RecordItem> {
+        val list = get("/api/v1/records").optJSONArray("records") ?: return emptyList()
+        return (0 until list.length()).map { i ->
+            val r = list.getJSONObject(i)
+            RecordItem(r.optString("label"), r.num("value"), r.optString("unit"), r.optString("date"), r.optBoolean("estimated"))
+        }
     }
 
     /** The extra cards are optional: any trouble (an older Weather Lab, a hiccup) just leaves that card out. */

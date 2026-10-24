@@ -1,0 +1,371 @@
+package com.weatherlab.android
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+// The pages behind the Storm tab and the More menu: Charts, Daily History (with Yesterday) and Records.
+// Charts, Daily History and Records need Weather Lab 0.35 or newer.
+
+private val DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)
+
+private fun dayName(date: String): String = try {
+    LocalDate.parse(date).format(DAY_FORMAT)
+} catch (_: Exception) {
+    date
+}
+
+private fun fmt(v: Double?, decimals: Int = 0): String =
+    if (v == null) "--" else if (decimals == 0) Math.round(v).toString() else "%.${decimals}f".format(Locale.US, v)
+
+private fun withUnit(v: Double?, unit: String, decimals: Int = 0): String {
+    if (v == null) return "--"
+    val sep = if (unit.isEmpty() || unit == "%" || unit.startsWith("°")) "" else " "
+    return "${fmt(v, decimals)}$sep$unit"
+}
+
+private fun decimalsFor(unit: String): Int = when {
+    unit == "in" || unit == "inHg" || unit == "in/hr" -> 2
+    unit == "mm" || unit == "mm/h" || unit == "hPa" || unit == "mph" || unit == "km/h" || unit == "mi" || unit == "km" -> 1
+    unit == "°F" || unit == "°C" || unit == "h" || unit == "%" -> 1
+    else -> 1
+}
+
+private fun ago(seconds: Long): String = when {
+    seconds < 90 -> "just now"
+    seconds < 3600 -> "${seconds / 60} min ago"
+    seconds < 86400 -> "${seconds / 3600} h ago"
+    else -> "${seconds / 86400} d ago"
+}
+
+@Composable
+private fun PageColumn(content: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 24.dp),
+    ) { content() }
+}
+
+/** Loads one thing from Weather Lab on a worker thread, with loading and error cards. */
+@Composable
+private fun <T> Fetch(address: String, token: String, key: Any, load: (WeatherLabApi) -> T, content: @Composable (T) -> Unit) {
+    var state by remember(key, address, token) { mutableStateOf<Result<T>?>(null) }
+    var retry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(key, address, token, retry) {
+        state = null
+        state = withContext(Dispatchers.IO) { runCatching { load(WeatherLabApi(address, token)) } }
+    }
+    val result = state
+    when {
+        result == null -> LoadingCard()
+        result.isFailure -> {
+            val e = result.exceptionOrNull()
+            val message = if (e is ApiException && e.code == 404) "This page needs Weather Lab 0.35 or newer. Update Weather Lab on your PC."
+            else e?.message ?: "Couldn't reach Weather Lab."
+            ErrorBox(message, onRetry = { retry++ }, title = "Couldn't load this page")
+        }
+        else -> content(result.getOrThrow())
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Storm tab
+
+@Composable
+fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
+    PageColumn {
+        val st = snapshot?.storm
+        if (st == null) {
+            Section("Lightning")
+            EmptyCard("Lightning needs Weather Lab 0.32 or newer, and the connection set up in More > Settings.")
+            return@PageColumn
+        }
+        val (headline, color) = when (st.trend) {
+            "overhead" -> "Lightning overhead" to C.bad
+            "approaching" -> "Storm approaching" to C.bad
+            "receding" -> "Storm moving away" to C.warn
+            "steady" -> "Lightning nearby, holding steady" to C.warn
+            else -> "No lightning nearby" to C.good
+        }
+        Section("Right now")
+        Panel(border = if (st.trend == "none") null else color) {
+            Column {
+                Text(headline, fontSize = 20.sp, fontWeight = FontWeight.W800, color = color)
+                Spacer(Modifier.height(4.dp))
+                val last = st.last
+                Text(
+                    if (last == null) "No strikes recorded yet." else
+                        "Last strike ${fmt(last.distance.value, 1)} ${last.distance.unit} away, ${ago(last.ageSeconds)}.",
+                    style = T.body, color = C.muted,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        TileGrid(
+            listOf<@Composable (Modifier) -> Unit>(
+                { m -> Tile("Last 10 minutes", st.strikes10m.toString(), m) },
+                { m -> Tile("Last 30 minutes", st.strikes30m.toString(), m) },
+                { m -> Tile("Today", st.strikesToday.toString(), m) },
+                { m ->
+                    Tile(
+                        "Last strike",
+                        st.last?.let { withUnit(it.distance.value, it.distance.unit, 1) } ?: "--",
+                        m, sub = st.last?.let { ago(it.ageSeconds) },
+                    )
+                },
+            ),
+        )
+        Section("Countdown notification")
+        Note(
+            if (stormNotify) "On. A notification shows the arrival estimate while lightning is near. Checked about every 15 minutes."
+            else "Off. Turn it on in More > Settings.",
+            if (stormNotify) C.good else C.muted,
+        )
+        Text(
+            "Approaching and moving away compare the average distance of strikes in the last 10 minutes with the 10 minutes before.",
+            style = T.label, color = C.muted,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// More menu
+
+enum class MoreSub(val label: String) {
+    MENU("More"), CHARTS("Charts"), DAYS("Daily History"), RECORDS("Records"), SETTINGS("Settings"),
+}
+
+@Composable
+fun MorePage(onOpen: (MoreSub) -> Unit) {
+    PageColumn {
+        Section("Pages")
+        val items = listOf(
+            Triple(MoreSub.CHARTS, "Charts", "Highs, lows, rain and gusts for 7 and 30 days"),
+            Triple(MoreSub.DAYS, "Daily History", "Yesterday and any day of the last 60"),
+            Triple(MoreSub.RECORDS, "Records", "All-time highs and lows, and the day each happened"),
+            Triple(MoreSub.SETTINGS, "Settings", "Connection, notifications, look of the app"),
+        )
+        ListPanel(
+            items.map { (sub, title, about) ->
+                val row: @Composable () -> Unit = {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onOpen(sub) }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) { InfoRow(title, "", sub = about) }
+                        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
+                    }
+                }
+                row
+            },
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Charts
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ChartsPage(address: String, token: String) {
+    var days by remember { mutableIntStateOf(7) }
+    PageColumn {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf(7 to "7 days", 30 to "30 days").forEach { (n, label) ->
+                FilterChip(
+                    selected = days == n,
+                    onClick = { days = n },
+                    label = { Text(label, color = C.text) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = C.card,
+                        selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true, selected = days == n,
+                        borderColor = C.line, selectedBorderColor = C.cyan,
+                    ),
+                )
+            }
+        }
+        Fetch(address, token, days, { it.charts(days) }) { c ->
+            val range = if (c.days.isEmpty()) "" else "${dayName(c.days.first().date)} to ${dayName(c.days.last().date)}"
+            fun series(pick: (ChartDay) -> Double?) = c.days.mapNotNull(pick)
+            @Composable
+            fun lineCard(title: String, values: List<Double>, unit: String) {
+                Section(title)
+                Panel {
+                    Column {
+                        if (values.size < 2) Text("Not enough days yet.", style = T.body, color = C.muted)
+                        else TrendChart(values, unit = unit)
+                        Text(range, style = T.label, color = C.muted)
+                    }
+                }
+            }
+            lineCard("High", series { it.high }, "°")
+            lineCard("Low", series { it.low }, "°")
+            Section("Rain")
+            Panel {
+                Column {
+                    val rain = c.days.map { it.rain }
+                    if (rain.all { it == null || it <= 0.0 }) Text("No rain in this period.", style = T.body, color = C.muted)
+                    else BarChart(rain, c.rainUnit)
+                    Text(range, style = T.label, color = C.muted)
+                }
+            }
+            lineCard("Highest gust each day", series { it.gust }, " ${c.windUnit}")
+        }
+    }
+}
+
+/** One bar per day, the biggest labelled. Missing days leave a gap. */
+@Composable
+fun BarChart(values: List<Double?>, unit: String) {
+    val bar = C.cyan
+    val base = C.line
+    val top = values.filterNotNull().maxOrNull() ?: 0.0
+    val decimals = decimalsFor(unit)
+    Text("Most in a day: ${withUnit(top, unit, decimals)}", style = T.label, color = C.muted)
+    Spacer(Modifier.height(6.dp))
+    Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+        if (values.isEmpty() || top <= 0.0) return@Canvas
+        val n = values.size
+        val slot = size.width / n
+        val w = slot * 0.7f
+        values.forEachIndexed { i, v ->
+            val h = if (v == null) 0f else (v / top * (size.height - 2.dp.toPx())).toFloat()
+            val x = i * slot + (slot - w) / 2f
+            drawRoundRect(base, Offset(x, size.height - 2.dp.toPx()), Size(w, 2.dp.toPx()), CornerRadius(1f))
+            if (h > 0f) drawRoundRect(bar, Offset(x, size.height - h), Size(w, h), CornerRadius(3.dp.toPx()))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Daily History
+
+@Composable
+fun DaysPage(address: String, token: String, onOpen: (String) -> Unit) {
+    PageColumn {
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { onOpen("yesterday") },
+            colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
+        ) { Text("Yesterday") }
+        Fetch(address, token, "days", { it.days() }) { list ->
+            Section("Last 60 days")
+            if (list.days.isEmpty()) {
+                EmptyCard("No daily summaries yet. They appear after the first full day of readings.")
+            } else {
+                ListPanel(
+                    list.days.map { d ->
+                        val row: @Composable () -> Unit = {
+                            Row(Modifier.fillMaxWidth().clickable { onOpen(d.date) }, verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    InfoRow(
+                                        left = dayName(d.date),
+                                        right = "${fmt(d.high)}° / ${fmt(d.low)}°",
+                                        sub = d.rain?.takeIf { it >= 0.01 }?.let { "Rain ${withUnit(it, list.rainUnit, decimalsFor(list.rainUnit))}" },
+                                    )
+                                }
+                                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
+                            }
+                        }
+                        row
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DayDetailPage(address: String, token: String, which: String) {
+    PageColumn {
+        Fetch(address, token, which, { it.day(which) }) { d ->
+            Section(if (which == "yesterday") "Yesterday, ${dayName(d.date)}" else dayName(d.date))
+            if (!d.found) {
+                EmptyCard("Weather Lab has no summary for this day.")
+            } else {
+                if (d.partial) Note("Today so far. Only the high, low and rain are live until the day ends.", C.muted)
+                if (d.estimated) Note("Imported from readings more than 5 minutes apart, so a high or a low can be a few degrees off.", C.warn)
+                ListPanel(
+                    d.values.map { v ->
+                        val row: @Composable () -> Unit = { InfoRow(v.label, withUnit(v.value, v.unit, decimalsFor(v.unit))) }
+                        row
+                    },
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Records
+
+@Composable
+fun RecordsPage(address: String, token: String) {
+    PageColumn {
+        Fetch(address, token, "records", { it.records() }) { items ->
+            Section("All-time records")
+            if (items.isEmpty()) {
+                EmptyCard("No records yet. They build up from the daily summaries.")
+            } else {
+                ListPanel(
+                    items.map { r ->
+                        val row: @Composable () -> Unit = {
+                            InfoRow(
+                                left = r.label,
+                                right = withUnit(r.value, r.unit, decimalsFor(r.unit)),
+                                sub = dayName(r.date) + (if (r.estimated) ", estimated" else ""),
+                            )
+                        }
+                        row
+                    },
+                )
+            }
+        }
+    }
+}

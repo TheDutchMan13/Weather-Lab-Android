@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,11 +24,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -104,8 +110,9 @@ private val WHEN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a
 
 private enum class Tab(val label: String, val icon: ImageVector, val selected: ImageVector) {
     LIVE("Live", Icons.Outlined.Cloud, Icons.Filled.Cloud),
-    ALERTS("Alerts", Icons.Outlined.Bolt, Icons.Filled.Bolt),
-    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+    STORM("Storm", Icons.Outlined.Bolt, Icons.Filled.Bolt),
+    ALERTS("Alerts", Icons.Outlined.Notifications, Icons.Filled.Notifications),
+    MORE("More", Icons.Outlined.Apps, Icons.Filled.Apps),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,7 +126,19 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
     var reloadCount by remember { mutableIntStateOf(0) }
     var stormOn by remember { mutableStateOf(prefs.stormNotify) }
     val context = LocalContext.current
-    var tab by remember { mutableStateOf(if (prefs.address.isBlank() || prefs.token.isBlank()) Tab.SETTINGS else Tab.LIVE) }
+    val needsSetup = prefs.address.isBlank() || prefs.token.isBlank()
+    var tab by remember { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }
+    var sub by remember { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
+    var dayKey by remember { mutableStateOf<String?>(null) }
+    val inSub = tab == Tab.MORE && sub != MoreSub.MENU
+    val goBack: () -> Unit = {
+        if (dayKey != null) {
+            dayKey = null
+        } else {
+            sub = MoreSub.MENU
+        }
+    }
+    BackHandler(enabled = inSub) { goBack() }
 
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
     LaunchedEffect(address, token, reloadCount, stormOn) {
@@ -144,7 +163,17 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
         containerColor = C.bg,
         topBar = {
             TopAppBar(
-                title = { Text(tab.label, fontSize = 22.sp, fontWeight = FontWeight.W800) },
+                title = {
+                    val title = if (tab != Tab.MORE) tab.label else if (dayKey != null) "Day" else sub.label
+                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.W800)
+                },
+                navigationIcon = {
+                    if (inSub) {
+                        IconButton(onClick = { goBack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = C.bg,
                     scrolledContainerColor = C.bg,
@@ -159,6 +188,10 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                     NavigationBarItem(
                         selected = tab == t,
                         onClick = {
+                            if (t == Tab.MORE && tab == Tab.MORE) {
+                                sub = MoreSub.MENU
+                                dayKey = null
+                            }
                             tab = t
                             if (t == Tab.LIVE) reloadCount++
                         },
@@ -185,10 +218,20 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                     snapshot = snapshot, error = error, loading = loading,
                     configured = address.isNotBlank() && token.isNotBlank(),
                     onRefresh = { reloadCount++ },
-                    onOpenSettings = { tab = Tab.SETTINGS },
+                    onOpenSettings = {
+                        tab = Tab.MORE
+                        sub = MoreSub.SETTINGS
+                    },
                 )
+                Tab.STORM -> StormPage(snapshot, stormOn)
                 Tab.ALERTS -> AlertsPage(snapshot)
-                Tab.SETTINGS -> SettingsPage(
+                Tab.MORE -> when {
+                    sub == MoreSub.MENU -> MorePage { sub = it }
+                    sub == MoreSub.CHARTS -> ChartsPage(address, token)
+                    sub == MoreSub.DAYS && dayKey == null -> DaysPage(address, token) { dayKey = it }
+                    sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
+                    sub == MoreSub.RECORDS -> RecordsPage(address, token)
+                    else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
                     onSave = { a, t ->
                         prefs.address = a
@@ -204,7 +247,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, onScheme: (Scheme) -> Unit) {
                         stormOn = on
                         prefs.stormNotify = on
                     },
-                )
+                    )
+                }
             }
         }
     }

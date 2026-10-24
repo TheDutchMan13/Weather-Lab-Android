@@ -600,7 +600,6 @@ private val APP_NEWS = listOf(
         "0.7.0", "October 23, 2026",
         listOf(
             "Tablet layout: on a wide screen the tabs move to a side rail and Live, Forecast and Storm show two panes (Live next to the charts, Forecast next to Sun and UV, Storm next to Lightning).",
-            "Wear OS tiles: Now, Storm and Today tiles for a paired watch, fed by this app. The watch app is a separate file in the release.",
         ),
     ),
     NewsEntry(

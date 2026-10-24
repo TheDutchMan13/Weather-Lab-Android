@@ -198,7 +198,6 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 snapshot = withContext(Dispatchers.IO) { WeatherLabApi(address, token).snapshot() }
                 error = null
                 StormWatch.update(context, snapshot?.storm, stormOn)
-                snapshot?.let { WearSync.send(context, it) }
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't reach Weather Lab."
             }

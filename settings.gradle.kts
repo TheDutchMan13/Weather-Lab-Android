@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "WeatherLabAndroid"
 include(":app")
-include(":wear")

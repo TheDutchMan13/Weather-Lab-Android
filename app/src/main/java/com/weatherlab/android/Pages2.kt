@@ -597,6 +597,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.0", "October 23, 2026",
+        listOf(
+            "Tablet layout: on a wide screen the tabs move to a side rail and Live, Forecast and Storm show two panes (Live next to the charts, Forecast next to Sun and UV, Storm next to Lightning).",
+        ),
+    ),
+    NewsEntry(
         "0.6.0", "October 23, 2026",
         listOf(
             "History pages from your own station: On This Day, Compare, Monthly Card, My Year, Season Milestones, Anomalies, Alert History, Forecast Accuracy, Export Data (CSV) and Season Rewind. They need Weather Lab 0.37 or newer.",

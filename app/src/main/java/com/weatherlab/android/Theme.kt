@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -138,6 +139,15 @@ fun WeatherLabTheme(scheme: Scheme, content: @Composable () -> Unit) {
 fun navItemColors() = NavigationBarItemDefaults.colors(
     indicatorColor = C.cyan.copy(alpha = 50 / 255f),
     // Same as the phone app: the selected icon is black on the tinted pill, everything else is near white.
+    selectedIconColor = Color.Black,
+    selectedTextColor = C.text,
+    unselectedIconColor = C.text,
+    unselectedTextColor = C.text,
+)
+
+@Composable
+fun railItemColors() = NavigationRailItemDefaults.colors(
+    indicatorColor = C.cyan.copy(alpha = 50 / 255f),
     selectedIconColor = Color.Black,
     selectedTextColor = C.text,
     unselectedIconColor = C.text,

@@ -597,6 +597,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.5", "October 25, 2026",
+        listOf(
+            "Tap a Live tile to see its history: 24 hours, 7 days or 30 days, with the high, low and average.",
+            "Needs Weather Lab 0.37.9 or newer on the PC.",
+        ),
+    ),
+    NewsEntry(
         "0.7.4", "October 24, 2026",
         listOf(
             "Live tiles now look like the phone app: a coloured edge, a 24-hour line, and a small line under each figure (indoor humidity, wind direction, peak today, pressure trend).",

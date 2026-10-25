@@ -39,6 +39,10 @@ data class Snapshot(
  * What the Live tiles show besides the latest reading. From Weather Lab 0.37.8 and up; an older Weather Lab leaves
  * it null and the tiles simply have no trend lines or peaks.
  */
+data class MeasureHistory(
+    val key: String, val days: Int, val unit: String, val points: List<Pair<Double, Double>>,
+    val high: Double?, val low: Double?, val average: Double?,
+)
 data class Tiles(val series: Map<String, List<Double>>, val peaks: Map<String, Double?>, val pressureWord: String?)
 
 /** One day of the 7 and 30 day charts. Missing figures are null. */
@@ -530,6 +534,15 @@ class WeatherLabApi(address: String, private val token: String) {
             visibility = j.optJSONObject("visibility")?.let { Measure(it.optDouble("value"), it.optString("unit")) },
             present = j.strings("present"),
         )
+    }
+
+    fun measureHistory(key: String, days: Int): MeasureHistory {
+        val j = get("/api/v1/measure/$key/$days")
+        val a = j.optJSONArray("points")
+        val pts = if (a == null) emptyList() else (0 until a.length()).mapNotNull { i ->
+            a.optJSONArray(i)?.let { p -> if (p.isNull(1)) null else Pair(p.optDouble(0), p.optDouble(1)) }
+        }
+        return MeasureHistory(key, days, j.optString("unit"), pts, j.num("high"), j.num("low"), j.num("average"))
     }
 
     fun tiles(): Tiles {

@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -502,7 +503,12 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
     Panel {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (temp == null) "--°" else "${one(temp.value)}°", style = T.hero, color = C.text)
+                Text(
+                    if (temp == null) "--°" else "${one(temp.value)}°", style = T.hero, color = C.text,
+                    modifier = if (temp == null) Modifier else Modifier.clickable(onClickLabel = "Show temperature history") {
+                        historyOf = Pair("tempf", "Temperature")
+                    },
+                )
                 Spacer(Modifier.width(12.dp))
                 WxIcon(kind, size = 72.dp)
             }

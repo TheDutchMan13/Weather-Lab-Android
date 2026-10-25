@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -71,6 +73,57 @@ fun TrendChart(values: List<Double>, unit: String = "°", height: Dp = 120.dp) {
         label("${hi.roundToInt()}$unit", iHi, true)
         if (iLo != iHi) label("${lo.roundToInt()}$unit", iLo, false)
         drawCircle(dot, radius = 4.dp.toPx(), center = Offset(xAt(n - 1), yAt(n - 1)))
+    }
+}
+
+/**
+ * Today's air temperature and heat index on one scale, with dotted lines where the Extreme caution and Danger levels start.
+ * Lines at levels outside the range of the readings are left out.
+ */
+@Composable
+fun HeatChart(temps: List<Double>, heatIndex: List<Double>, marks: List<Pair<Double, String>>, unit: String, height: Dp = 170.dp) {
+    val measurer = rememberTextMeasurer()
+    val tempColor = C.bad
+    val indexColor = C.cyan
+    val gridColor = C.line
+    val labelColor = C.muted
+    val markColor = C.warn
+    val description = if (heatIndex.size < 2) "Heat chart with no data" else
+        "Heat index today: lowest ${heatIndex.min().roundToInt()}$unit, highest ${heatIndex.max().roundToInt()}$unit, " +
+            "latest ${heatIndex.last().roundToInt()}$unit."
+    Canvas(Modifier.fillMaxWidth().height(height).semantics { contentDescription = description }) {
+        if (heatIndex.size < 2) return@Canvas
+        val all = temps + heatIndex
+        var lo = all.min()
+        var hi = all.max()
+        marks.forEach { (v, _) -> if (v in (lo - 15)..(hi + 15)) { lo = min(lo, v); hi = max(hi, v) } }
+        val span = if (hi - lo < 1) 1.0 else hi - lo
+        val padT = 12.dp.toPx()
+        val padB = 12.dp.toPx()
+        val h = size.height - padT - padB
+        fun yAt(v: Double) = (padT + h * (1 - (v - lo) / span)).toFloat()
+        val style = TextStyle(color = labelColor, fontSize = 11.sp)
+        marks.forEach { (v, name) ->
+            if (v < lo || v > hi) return@forEach
+            val y = yAt(v)
+            drawLine(markColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx())))
+            val m = measurer.measure("$name ${v.roundToInt()}$unit", style)
+            drawText(m, topLeft = Offset(size.width - m.size.width, y - m.size.height - 1.dp.toPx()))
+        }
+        drawLine(gridColor, Offset(0f, size.height - padB), Offset(size.width, size.height - padB), strokeWidth = 1.dp.toPx())
+        fun line(values: List<Double>, color: Color) {
+            val n = values.size
+            if (n < 2) return
+            val path = Path()
+            for (i in 0 until n) {
+                val x = i * size.width / (n - 1)
+                if (i == 0) path.moveTo(x, yAt(values[i])) else path.lineTo(x, yAt(values[i]))
+            }
+            drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        line(temps, tempColor)
+        line(heatIndex, indexColor)
     }
 }
 

@@ -497,8 +497,24 @@ fun HeatPage(address: String, token: String) {
                     Triple("Heat index", withUnit(h.heatIndex, h.unit, 0), null),
                     Triple("Air temperature", withUnit(h.temp, h.unit, 0), null),
                     Triple("Peak today", withUnit(h.peakToday, h.unit, 0), h.peakTime),
+                    Triple("Hours at Danger or worse", "${fmt(h.dangerHours, 1)} h", "today so far"),
                 ),
             )
+            if (h.series.size >= 2) {
+                Section("Today")
+                Panel {
+                    Column {
+                        HeatChart(
+                            temps = h.series.mapNotNull { it.temp },
+                            heatIndex = h.series.mapNotNull { it.heatIndex },
+                            marks = h.levels.filter { (it.level == "Extreme caution" || it.level == "Danger") && it.from != null }
+                                .map { (it.from ?: 0.0) to it.level },
+                            unit = h.unit,
+                        )
+                        Text("Red: air temperature. Blue: heat index. Dotted lines mark where each level starts.", style = T.label, color = C.muted)
+                    }
+                }
+            }
             Section("Hot days in ${h.year}")
             ListPanel(
                 listOf(
@@ -507,16 +523,49 @@ fun HeatPage(address: String, token: String) {
                     { InfoRow("110 or hotter", "${h.days110}") },
                 ),
             )
-            Section("Heat index levels")
+            Section("Heat safety levels")
             ListPanel(
-                h.levels.map { l ->
+                h.levels.reversed().map { l ->
+                    val here = l.level == h.level
                     val row: @Composable () -> Unit = {
-                        InfoRow(l.level, if (l.from == null) "" else "${l.from.roundToInt()}${h.unit} and up", sub = l.advice)
+                        InfoRow(
+                            l.level,
+                            if (l.from == null) "under ${h.levels.getOrNull(h.levels.indexOf(l) + 1)?.from?.roundToInt() ?: ""}${h.unit}"
+                            else "${l.from.roundToInt()}${h.unit} and up",
+                            sub = if (here) "You are here. ${l.advice}" else l.advice,
+                            rightColor = if (here) color else null,
+                        )
                     }
                     row
                 },
             )
-            Text("General guidance, not medical advice.", style = T.label, color = C.muted)
+            if (h.hours.isNotEmpty()) {
+                Section("Time in each level today")
+                ListPanel(
+                    h.hours.map { x ->
+                        val row: @Composable () -> Unit = { InfoRow(x.level, "${fmt(x.hours, 1)} h") }
+                        row
+                    },
+                )
+            }
+            Section("Dangerous heat days")
+            if (h.dangerDays.isEmpty()) {
+                EmptyCard("None recorded yet.")
+            } else {
+                ListPanel(
+                    h.dangerDays.map { d ->
+                        val row: @Composable () -> Unit = {
+                            InfoRow(dayName(d.date), withUnit(d.value, h.unit, 0), sub = d.level)
+                        }
+                        row
+                    },
+                )
+                Text(
+                    "Days with a heat index of ${withUnit(h.dangerLimit, h.unit, 0)} or more.",
+                    style = T.label, color = C.muted, modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            Text("General guidance, not medical advice.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -596,6 +645,13 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.7.8", "October 25, 2026",
+        listOf(
+            "Heat Safety is now Heat safety. It shows hours at Danger or worse, a chart of today's air temperature and heat index with the level lines, the levels with \"you are here\", hours spent in each level today, and a list of dangerous heat days.",
+            "Needs Weather Lab 0.37.21 or newer on the PC.",
+        ),
+    ),
     NewsEntry(
         "0.7.7", "October 25, 2026",
         listOf(

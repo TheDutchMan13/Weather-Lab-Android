@@ -99,10 +99,17 @@ data class SunInfo(
     val burnNow: List<Burn>, val burnPeak: List<Burn>,
 )
 data class HeatLevel(val level: String, val from: Double?, val advice: String)
+data class HeatHours(val level: String, val hours: Double)
+data class HeatDangerDay(val date: String, val value: Double?, val level: String)
+/** One point on today's heat chart: time in seconds, air temperature and heat index. */
+data class HeatPoint(val time: Long, val temp: Double?, val heatIndex: Double?)
 data class HeatInfo(
     val heatIndex: Double?, val level: String, val advice: String, val temp: Double?, val peakToday: Double?,
     val peakTime: String?, val days100: Int, val days105: Int, val days110: Int, val year: Int,
     val levels: List<HeatLevel>, val unit: String,
+    // Added in Weather Lab 0.37.21; empty or zero on older versions.
+    val hours: List<HeatHours> = emptyList(), val dangerHours: Double = 0.0, val dangerLimit: Double? = null,
+    val dangerDays: List<HeatDangerDay> = emptyList(), val series: List<HeatPoint> = emptyList(),
 )
 data class SensorHealth(val label: String, val presentPercent: Double, val ageSeconds: Long?)
 data class Radio(val name: String, val battery: String, val batteryState: String, val signal: String, val signalState: String)
@@ -423,6 +430,14 @@ class WeatherLabApi(address: String, private val token: String) {
             if (j.isNull("peak_time")) null else j.optString("peak_time"),
             j.optInt("days_100"), j.optInt("days_105"), j.optInt("days_110"), j.optInt("year"),
             j.each("levels") { HeatLevel(it.optString("level"), it.num("from"), it.optString("advice")) }, j.optString("unit"),
+            j.each("hours") { HeatHours(it.optString("level"), it.optDouble("hours", 0.0)) },
+            j.optDouble("danger_hours", 0.0), j.num("danger_limit"),
+            j.each("danger_days") { HeatDangerDay(it.optString("date"), it.num("value"), it.optString("level")) },
+            (j.optJSONArray("series")?.let { a ->
+                (0 until a.length()).mapNotNull { i ->
+                    a.optJSONArray(i)?.let { p -> HeatPoint(p.optLong(0), if (p.isNull(1)) null else p.optDouble(1), if (p.isNull(2)) null else p.optDouble(2)) }
+                }
+            } ?: emptyList()),
         )
     }
 

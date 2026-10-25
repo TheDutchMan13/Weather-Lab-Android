@@ -12,8 +12,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.7.7"
+        versionCode = 17
+        versionName = "0.7.8"
     }
 
     // Release signing. The key never lives in the repo: the release workflow supplies it through these settings.

@@ -54,5 +54,9 @@ val TERMS = listOf(
 /** The explanation for a tile label such as "Dew point" or "UV index", or null when the label is not a term. */
 fun termForLabel(label: String): Term? {
     val l = label.trim().lowercase()
+    if (l !in HELP_LABELS) return null
     return TERMS.firstOrNull { it.name.lowercase() == l }
 }
+
+/** Tiles that wear the ? ring: the terms most people have to look up. Others stay plain, as on the phone app. */
+private val HELP_LABELS = setOf("gust", "pressure", "dew point", "feels like", "heat index", "wind chill")

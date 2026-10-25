@@ -6,6 +6,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,6 +50,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -77,7 +81,7 @@ fun Panel(modifier: Modifier = Modifier, border: Color? = null, content: @Compos
     ) { content() }
 }
 
-private const val SHOW_TILE_ACCENT = false
+private const val SHOW_TILE_ACCENT = true
 
 // Measure colours from the dashboard tiles. A tile for one of these measures gets a coloured left edge.
 private fun measureAccent(label: String): Color? = when (label) {
@@ -93,8 +97,11 @@ private fun measureAccent(label: String): Color? = when (label) {
 
 /** One reading: small label, big figure, optional small line under it. 16 dp corners, accent edge for known measures. */
 @Composable
-fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null) {
-    // The running phone app shows plain tiles (no coloured edge), so the edge is off here too. Set to true to bring it back.
+fun Tile(
+    label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null,
+    trend: List<Double>? = null,
+) {
+    // Tiles for known measures get a 4 dp coloured left edge and, when given, a 24-hour line, as on the phone app.
     val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
     val shape = RoundedCornerShape(16.dp)
     val term = termForLabel(label)
@@ -119,6 +126,10 @@ fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: Strin
             if (sub != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(sub, style = T.label, color = C.muted)
+            }
+            if (trend != null && accent != null) {
+                Spacer(Modifier.height(8.dp))
+                TrendSpark(trend, accent)
             }
         }
     }
@@ -307,5 +318,28 @@ fun ListPanel(rows: List<@Composable () -> Unit>) {
                 if (i < rows.lastIndex) HorizontalDivider(thickness = 1.dp, color = C.line)
             }
         }
+    }
+}
+
+/** A small line of the last 24 hours for a tile: 22 dp tall, 2 dp stroke, a dot on the newest reading. Blank until data arrives. */
+@Composable
+fun TrendSpark(values: List<Double>, color: Color, modifier: Modifier = Modifier) {
+    val box = modifier.fillMaxWidth().height(22.dp)
+    if (values.size < 2) {
+        Spacer(box)
+        return
+    }
+    Canvas(box) {
+        val lo = values.min()
+        val span = (values.max() - lo).let { if (it < 1e-9) 1.0 else it }
+        val n = values.size
+        fun x(i: Int) = i * size.width / (n - 1)
+        fun y(i: Int) = ((size.height - 3.dp.toPx()) - ((values[i] - lo) / span * (size.height - 6.dp.toPx()))).toFloat()
+        val path = Path().apply {
+            moveTo(x(0), y(0))
+            for (i in 1 until n) lineTo(x(i), y(i))
+        }
+        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(color, radius = 2.5.dp.toPx(), center = Offset(x(n - 1), y(n - 1)))
     }
 }

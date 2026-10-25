@@ -412,15 +412,65 @@ private fun LivePage(
     }
 }
 
-private val TILES = listOf(
-    "humidity" to "Humidity",
-    "windspeedmph" to "Wind",
-    "windgustmph" to "Gust",
-    "baromrelin" to "Pressure",
-    "rainratein" to "Rain rate",
-    "dailyrainin" to "Rain today",
-    "uv" to "UV index",
-)
+/** One tile of the Live page: what it says, a small line under the figure, and which 24-hour series it draws. */
+private class LiveTile(val label: String, val value: String, val sub: String? = null, val series: String? = null)
+
+private val COMPASS = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+
+private fun compass(deg: Double): String = COMPASS[(((deg % 360 + 360) % 360 + 11.25) / 22.5).toInt() % 16]
+
+/** "6:47 PM" in this phone's time zone from an ISO time such as 2026-10-24T01:47:00+00:00, or null when it can't be read. */
+private fun clockOf(iso: String): String? = try {
+    java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+} catch (e: Exception) {
+    null
+}
+
+/** The Live tiles in the order of the phone app. Peaks, trend words and the airport come from newer Weather Lab versions. */
+private fun liveTiles(s: Snapshot): List<LiveTile> {
+    val v = s.current.values
+    val tl = s.tiles
+    fun peak(key: String, decimals: Int): String? = tl?.peaks?.get(key)?.let {
+        if (decimals == 0) Math.round(it).toString() else "%.${decimals}f".format(it)
+    }
+    val out = ArrayList<LiveTile>()
+    v["humidity"]?.let { m ->
+        out += LiveTile("Humidity", reading("humidity", m), v["humidityin"]?.let { "Indoor ${Math.round(it.value)}%" }, "humidity")
+    }
+    v["windspeedmph"]?.let { m ->
+        out += LiveTile("Wind", reading("windspeedmph", m), v["winddir"]?.let { compass(it.value) }, "windspeedmph")
+    }
+    v["windgustmph"]?.let { m ->
+        out += LiveTile("Gust", reading("windgustmph", m), peak("windgustmph", 1)?.let { "Peak today $it" }, "windgustmph")
+    }
+    v["baromrelin"]?.let { m ->
+        val word = tl?.pressureWord
+        val arrow = when {
+            word == null -> ""
+            word.startsWith("rising") -> "\u2191 "
+            word.startsWith("falling") -> "\u2193 "
+            else -> "\u2192 "
+        }
+        out += LiveTile("Pressure", reading("baromrelin", m), word?.let { arrow + it }, "baromrelin")
+    }
+    s.airport?.let { a ->
+        val vis = a.visibility
+        if (a.available && vis != null) {
+            val name = a.name.ifBlank { "Airport" }
+            val sub = listOfNotNull(clockOf(a.time)).let { if (it.isEmpty()) name else "$name, ${it[0]}" } +
+                (if (a.present.isNotEmpty()) " \u00B7 ${a.present.joinToString(", ")}" else "")
+            out += LiveTile("Visibility", "${"%.1f".format(vis.value)} ${vis.unit}", sub)
+        }
+    }
+    v["uv"]?.let { m -> out += LiveTile("UV index", reading("uv", m), peak("uv", 0)?.let { "Peak today $it" }) }
+    v["solarradiation"]?.let { m ->
+        out += LiveTile("Solar", reading("solarradiation", m), peak("solarradiation", 0)?.let { "Peak today $it" }, "solarradiation")
+    }
+    v["rainratein"]?.let { m -> out += LiveTile("Rain rate", reading("rainratein", m)) }
+    v["dailyrainin"]?.let { m -> out += LiveTile("Rain today", reading("dailyrainin", m)) }
+    return out
+}
 
 @Composable
 private fun Dashboard(s: Snapshot) {
@@ -475,9 +525,10 @@ private fun Dashboard(s: Snapshot) {
     )
     Spacer(Modifier.height(10.dp))
     TileGrid(
-        TILES.mapNotNull { (key, label) ->
-            val m = v[key] ?: return@mapNotNull null
-            val item: @Composable (Modifier) -> Unit = { mod -> Tile(label, reading(key, m), mod) }
+        liveTiles(s).map { t ->
+            val item: @Composable (Modifier) -> Unit = { mod ->
+                Tile(t.label, t.value, mod, sub = t.sub, trend = t.series?.let { k -> s.tiles?.series?.get(k) ?: emptyList() })
+            }
             item
         },
     )

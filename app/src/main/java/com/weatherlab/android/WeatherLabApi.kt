@@ -59,6 +59,22 @@ data class DayValue(val label: String, val value: Double?, val unit: String)
 data class DayDetail(val date: String, val found: Boolean, val estimated: Boolean, val partial: Boolean, val values: List<DayValue>)
 data class RecordItem(val label: String, val value: Double?, val unit: String, val date: String, val estimated: Boolean)
 
+/** One day with one figure, in the lists on Records and analysis. */
+data class EventDay(val date: String, val value: Double?)
+data class BoardRow(val label: String, val value: Double?, val unit: String, val whenText: String, val isNew: Boolean, val high: Boolean)
+data class BoardGroup(val title: String, val rows: List<BoardRow>)
+data class DistBucket(val from: Double?, val count: Int)
+
+/** Everything on Records and analysis: summary tiles, event lists, the daily-high distribution and the records board. */
+data class RecordsAnalysis(
+    val tempUnit: String, val gustUnit: String, val rainUnit: String,
+    val days100: Int, val days110: Int, val hottest: EventDay?, val gust: EventDay?, val rainTotal: Double?, val rainDays: Int,
+    val heat: List<EventDay>, val cold: List<EventDay>, val wind: List<EventDay>, val rain: List<EventDay>,
+    val heatCount: Int, val coldCount: Int, val windCount: Int, val rainCount: Int,
+    val heatLimit: Double?, val coldLimit: Double?, val windLimit: Double?, val rainLimit: Double?,
+    val distribution: List<DistBucket>, val board: List<BoardGroup>,
+)
+
 data class RankItem(val date: String, val value: Double?)
 data class Ranking(val label: String, val unit: String, val items: List<RankItem>)
 data class RainDay(val date: String, val rain: Double?)
@@ -310,6 +326,33 @@ class WeatherLabApi(address: String, private val token: String) {
             val r = list.getJSONObject(i)
             RecordItem(r.optString("label"), r.num("value"), r.optString("unit"), r.optString("date"), r.optBoolean("estimated"))
         }
+    }
+
+    /** Needs Weather Lab 0.37.20 or newer. */
+    fun recordsAnalysis(): RecordsAnalysis {
+        val j = get("/api/v1/records/analysis")
+        val u = j.optJSONObject("units") ?: JSONObject()
+        val sm = j.optJSONObject("summary") ?: JSONObject()
+        val c = j.optJSONObject("counts") ?: JSONObject()
+        val ev = j.optJSONObject("events") ?: JSONObject()
+        val lim = j.optJSONObject("limits") ?: JSONObject()
+        fun day(o: JSONObject?) = if (o == null) null else EventDay(o.optString("date"), o.num("value"))
+        fun list(key: String) = ev.each(key) { EventDay(it.optString("date"), it.num("value")) }
+        return RecordsAnalysis(
+            u.optString("temp"), u.optString("gust"), u.optString("rain"),
+            sm.optInt("days100"), sm.optInt("days110"), day(sm.optJSONObject("hottest")), day(sm.optJSONObject("gust")),
+            sm.num("rainTotal"), sm.optInt("rainDays"),
+            list("heat"), list("cold"), list("wind"), list("rain"),
+            c.optInt("heat"), c.optInt("cold"), c.optInt("wind"), c.optInt("rain"),
+            lim.num("heat"), lim.num("cold"), lim.num("wind"), lim.num("rain"),
+            j.each("distribution") { DistBucket(it.num("from"), it.optInt("count")) },
+            j.each("board") { g ->
+                BoardGroup(g.optString("title"), g.each("rows") { r ->
+                    BoardRow(r.optString("label"), r.num("value"), r.optString("unit"), r.optString("when"),
+                        r.optBoolean("new"), r.optBoolean("high"))
+                })
+            },
+        )
     }
 
     private fun JSONObject.int(key: String): Int? = if (!has(key) || isNull(key)) null else optInt(key)

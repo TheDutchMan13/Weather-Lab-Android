@@ -127,7 +127,7 @@ fun TouchLine(values: List<Double>, labels: List<String>, unit: String, height: 
 }
 
 @Composable
-fun TouchBars(values: List<Double?>, labels: List<String>, unit: String, height: Dp = 110.dp) {
+fun TouchBars(values: List<Double?>, labels: List<String>, unit: String, height: Dp = 110.dp, topLabel: String = "Most in a day") {
     val n = values.size
     if (n == 0) return
     var picked by remember(values) { mutableIntStateOf(-1) }
@@ -139,7 +139,7 @@ fun TouchBars(values: List<Double?>, labels: List<String>, unit: String, height:
     val decimals = decimalsFor(unit)
     Text(
         if (shown in 0 until n) "${labels[shown]}: ${withUnit(values[shown] ?: 0.0, unit, decimals)}"
-        else "Most in a day: ${withUnit(top, unit, decimals)}",
+        else "$topLabel: ${withUnit(top, unit, decimals)}",
         style = T.body, color = C.text,
     )
     Text("Touch a bar to read it.", style = T.label, color = C.muted)
@@ -596,6 +596,13 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.7.7", "October 25, 2026",
+        listOf(
+            "Records is now Records and analysis. It has summary tiles, chips for Records, Heat, Rain and storms and Climate, lists of heat, cold, wind and rain events, the records board grouped as on the PC, and a chart of how many days fell in each daily-high range.",
+            "Needs Weather Lab 0.37.20 or newer on the PC.",
+        ),
+    ),
     NewsEntry(
         "0.7.6", "October 25, 2026",
         listOf(

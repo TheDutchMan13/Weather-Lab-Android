@@ -65,6 +65,7 @@ internal fun withUnit(v: Double?, unit: String, decimals: Int = 0): String {
 }
 
 internal fun decimalsFor(unit: String): Int = when {
+    unit == "days" -> 0
     unit == "in" || unit == "inHg" || unit == "in/hr" -> 2
     unit == "mm" || unit == "mm/h" || unit == "hPa" || unit == "mph" || unit == "km/h" || unit == "mi" || unit == "km" -> 1
     unit == "°F" || unit == "°C" || unit == "h" || unit == "%" -> 1
@@ -177,7 +178,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 enum class MoreSub(val label: String) {
     MENU("More"), CHARTS("Charts"), WIND("Wind Rose"), SUN("Sun and UV"), HEAT("Heat Safety"),
     RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
-    DAYS("Daily History"), RECORDS("Records"), RANKINGS("Rankings"),
+    DAYS("Daily History"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),
     ON_THIS_DAY("On This Day"), COMPARE("Compare"), MONTH("Monthly Card"), YEAR("My Year"),
     MILESTONES("Season Milestones"), ANOMALIES("Anomalies"), ALERT_HISTORY("Alert History"),
@@ -207,7 +208,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
         ),
         "History" to listOf(
             MoreItem(MoreSub.DAYS, "Yesterday, and any day of the last 60"),
-            MoreItem(MoreSub.RECORDS, "All-time highs and lows"),
+            MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
             MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
             MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
             MoreItem(MoreSub.COMPARE, "This year against last year"),
@@ -365,29 +366,129 @@ fun DayDetailPage(address: String, token: String, which: String) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Records
+// Records and analysis
 
+private val RECORD_GROUPS = listOf("Records", "Heat", "Rain and storms", "Climate")
+private val RECORD_VIEWS = listOf("Extreme events", "Records board", "Distribution")
+
+/** Records and analysis: summary tiles, group and view chips, event lists, the records board and a distribution. */
 @Composable
-fun RecordsPage(address: String, token: String) {
+fun RecordsPage(address: String, token: String, onOpen: (MoreSub) -> Unit = {}) {
+    var group by remember { mutableIntStateOf(0) }
+    var view by remember { mutableIntStateOf(0) }
     PageColumn {
-        Fetch(address, token, "records", { it.records() }) { items ->
-            Section("All-time records")
-            if (items.isEmpty()) {
-                EmptyCard("No records yet. They build up from the daily summaries.")
-            } else {
-                ListPanel(
-                    items.map { r ->
-                        val row: @Composable () -> Unit = {
-                            InfoRow(
-                                left = r.label,
-                                right = withUnit(r.value, r.unit, decimalsFor(r.unit)),
-                                sub = dayName(r.date) + (if (r.estimated) ", estimated" else ""),
+        Fetch(address, token, "records-analysis", { it.recordsAnalysis() }) { a ->
+            val metric = a.tempUnit == "°C"
+            val hot100 = if (metric) "38°C" else "100°F"
+            val hot110 = if (metric) "43°C" else "110°F"
+            Section("At a glance")
+            TileGrid(
+                tiles(
+                    Triple("Days $hot100 or more", a.days100.toString(), "${a.days110} of them $hot110+"),
+                    Triple("Total rain", withUnit(a.rainTotal, a.rainUnit, decimalsFor(a.rainUnit)), "${a.rainDays} rainy days"),
+                    Triple("Highest gust", withUnit(a.gust?.value, a.gustUnit, 0), a.gust?.let { dayName(it.date) }),
+                    Triple("Hottest day", withUnit(a.hottest?.value, a.tempUnit, 1), a.hottest?.let { dayName(it.date) }),
+                ),
+            )
+            Section("Explore")
+            Chips(RECORD_GROUPS, group) { group = it; view = 0 }
+            if (group == 0) Chips(RECORD_VIEWS, view) { view = it }
+            Spacer(Modifier.height(10.dp))
+            when {
+                group == 0 && view == 0 -> {
+                    TileGrid(
+                        tiles(
+                            Triple("Heat events", a.heatCount.toString(), a.heat.firstOrNull()?.let { "hottest ${withUnit(it.value, a.tempUnit, 1)}" } ?: "none recorded"),
+                            Triple("Cold events", a.coldCount.toString(), a.cold.firstOrNull()?.let { "lowest ${withUnit(it.value, a.tempUnit, 1)}" } ?: "none recorded"),
+                            Triple("Wind events", a.windCount.toString(), a.wind.firstOrNull()?.let { "highest ${withUnit(it.value, a.gustUnit, 0)}" } ?: "none recorded"),
+                            Triple("Rain events", a.rainCount.toString(), a.rain.firstOrNull()?.let { "wettest ${withUnit(it.value, a.rainUnit, 2)}" } ?: "none recorded"),
+                        ),
+                    )
+                    EventList("Heat events", a.heat, a.tempUnit, 1)
+                    EventList("Cold events", a.cold, a.tempUnit, 1)
+                    EventList("Wind events", a.wind, a.gustUnit, 0)
+                    EventList("Rain events", a.rain, a.rainUnit, 2)
+                    Text(
+                        "An event is a high of ${withUnit(a.heatLimit, a.tempUnit, 0)} or more, a low of ${withUnit(a.coldLimit, a.tempUnit, 0)} or less, " +
+                            "a gust of ${withUnit(a.windLimit, a.gustUnit, 0)} or more, or ${withUnit(a.rainLimit, a.rainUnit, 2)} of rain or more.",
+                        style = T.label, color = C.muted, modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                group == 0 && view == 1 -> {
+                    if (a.board.isEmpty()) {
+                        EmptyCard("No records yet. They build up from the daily summaries.")
+                    } else {
+                        a.board.forEach { g ->
+                            Section(g.title)
+                            ListPanel(
+                                g.rows.map { r ->
+                                    val row: @Composable () -> Unit = {
+                                        InfoRow(
+                                            left = if (r.isNew) "${r.label}  NEW" else r.label,
+                                            right = withUnit(r.value, r.unit, decimalsFor(r.unit)),
+                                            sub = r.whenText,
+                                        )
+                                    }
+                                    row
+                                },
                             )
                         }
-                        row
-                    },
-                )
+                        Text("NEW means set in the last 30 days. Records cover only the time since Weather Lab started collecting.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 8.dp))
+                    }
+                }
+                group == 0 -> {
+                    if (a.distribution.isEmpty()) {
+                        EmptyCard("No daily highs yet.")
+                    } else {
+                        Section("Days by daily high")
+                        TouchBars(
+                            a.distribution.map { it.count.toDouble() },
+                            a.distribution.map { b -> "${fmt(b.from, 0)}${a.tempUnit} and up" },
+                            "days", topLabel = "Most days in a range",
+                        )
+                    }
+                }
+                group == 1 -> {
+                    EventList("Heat events", a.heat, a.tempUnit, 1)
+                    Text("Days at ${withUnit(a.heatLimit, a.tempUnit, 0)} or more. The Heat Safety page has the heat index.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 8.dp))
+                }
+                group == 2 -> {
+                    EventList("Rain events", a.rain, a.rainUnit, 2)
+                    EventList("Wind events", a.wind, a.gustUnit, 0)
+                }
+                else -> {
+                    ListPanel(
+                        listOf(MoreSub.ON_THIS_DAY to "Today's date in every past year", MoreSub.COMPARE to "This year against last year").map { (sub, about) ->
+                            val row: @Composable () -> Unit = {
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onOpen(sub) }.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) { InfoRow(sub.label, "", sub = about) }
+                                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
+                                }
+                            }
+                            row
+                        },
+                    )
+                }
             }
         }
+    }
+}
+
+/** A titled list of days with one figure each, or a note when there are none. */
+@Composable
+private fun EventList(title: String, items: List<EventDay>, unit: String, decimals: Int) {
+    Section(title)
+    if (items.isEmpty()) {
+        EmptyCard("None recorded.")
+    } else {
+        ListPanel(
+            items.map { e ->
+                val row: @Composable () -> Unit = { InfoRow(dayName(e.date), withUnit(e.value, unit, decimals)) }
+                row
+            },
+        )
     }
 }

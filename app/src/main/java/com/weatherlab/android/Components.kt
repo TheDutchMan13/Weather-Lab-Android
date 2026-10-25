@@ -88,6 +88,9 @@ private fun measureAccent(label: String): Color? = when (label) {
     "Wind" -> Color(0xFF8FD3C0)
     "Gust" -> Color(0xFF10B981)
     "Humidity" -> Color(0xFF6E78AE)
+    "Indoor humidity" -> Color(0xFF6E78AE)
+    "Indoor temperature" -> Color(0xFFE8833A)
+    "Rain today" -> Color(0xFF4F9CF7)
     "Pressure" -> Color(0xFFA78BFA)
     "Rain rate" -> Color(0xFF8A5CF0)
     "UV index" -> Color(0xFFF6D55C)
@@ -99,7 +102,7 @@ private fun measureAccent(label: String): Color? = when (label) {
 @Composable
 fun Tile(
     label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null,
-    trend: List<Double>? = null, onClick: (() -> Unit)? = null,
+    trend: List<Double>? = null, onClick: (() -> Unit)? = null, range: String? = null,
 ) {
     // Tiles for known measures get a 4 dp coloured left edge and, when given, a 24-hour line, as on the phone app.
     val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
@@ -129,7 +132,11 @@ fun Tile(
             }
             if (trend != null && accent != null) {
                 Spacer(Modifier.height(8.dp))
-                TrendSpark(trend, accent)
+                TrendSpark(trend, accent, height = 48.dp)
+                if (range != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(range, style = T.label, color = C.muted)
+                }
             }
         }
     }
@@ -324,8 +331,8 @@ fun ListPanel(rows: List<@Composable () -> Unit>) {
 
 /** A small line of the last 24 hours for a tile: 22 dp tall, 2 dp stroke, a dot on the newest reading. Blank until data arrives. */
 @Composable
-fun TrendSpark(values: List<Double>, color: Color, modifier: Modifier = Modifier) {
-    val box = modifier.fillMaxWidth().height(22.dp)
+fun TrendSpark(values: List<Double>, color: Color, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 22.dp) {
+    val box = modifier.fillMaxWidth().height(height)
     if (values.size < 2) {
         Spacer(box)
         return

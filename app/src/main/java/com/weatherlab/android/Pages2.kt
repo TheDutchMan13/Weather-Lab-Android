@@ -646,6 +646,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.10", "October 25, 2026",
+        listOf(
+            "Every reading card on the Live page with history now draws its last 24 hours as a taller line with the low and high underneath. UV, Rain rate and Rain today have charts, and Indoor temperature and Indoor humidity are new cards.",
+            "Needs Weather Lab 0.37.23 or newer on the PC.",
+        ),
+    ),
+    NewsEntry(
         "0.7.9", "October 25, 2026",
         listOf(
             "Daily History is now Daily. Pick 1 day, 7 days, 30 days or All. Ranges show summary tiles (hottest day, coolest night, windiest gust, rain), charts, the wind rose for the period, rain totals for today, 7 days, this month and this year, and a list of days. 1 day has Previous and Next.",

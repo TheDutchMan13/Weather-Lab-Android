@@ -314,7 +314,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.CHARTS -> ChartsPage(address, token)
                     sub == MoreSub.DAYS && dayKey == null -> DaysPage(address, token) { dayKey = it }
                     sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
-                    sub == MoreSub.RECORDS -> RecordsPage(address, token)
+                    sub == MoreSub.RECORDS -> RecordsPage(address, token) { sub = it }
                     sub == MoreSub.RANKINGS -> RankingsPage(address, token)
                     sub == MoreSub.WIND -> WindPage(address, token)
                     sub == MoreSub.SUN -> SunPage(address, token)

@@ -646,6 +646,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.11", "October 25, 2026",
+        listOf(
+            "Dew point moved from the top of the Live page to a card at the bottom. It draws the last 24 hours with the low and high, says in words how the air feels, and opens its history when tapped.",
+            "Needs Weather Lab 0.37.23 or newer on the PC.",
+        ),
+    ),
+    NewsEntry(
         "0.7.10", "October 25, 2026",
         listOf(
             "Every reading card on the Live page with history now draws its last 24 hours as a taller line with the low and high underneath. UV, Rain rate and Rain today have charts, and Indoor temperature and Indoor humidity are new cards.",

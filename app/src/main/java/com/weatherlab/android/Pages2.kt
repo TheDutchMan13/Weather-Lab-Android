@@ -597,6 +597,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.6", "October 25, 2026",
+        listOf(
+            "Tap the big temperature at the top of Live to see its history, the same as the tiles.",
+        ),
+    ),
+    NewsEntry(
         "0.7.5", "October 25, 2026",
         listOf(
             "Tap a Live tile to see its history: 24 hours, 7 days or 30 days, with the high, low and average.",

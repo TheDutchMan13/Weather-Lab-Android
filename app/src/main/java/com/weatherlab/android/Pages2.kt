@@ -597,6 +597,14 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.4", "October 24, 2026",
+        listOf(
+            "Live tiles now look like the phone app: a coloured edge, a 24-hour line, and a small line under each figure (indoor humidity, wind direction, peak today, pressure trend).",
+            "New Visibility tile from the nearest airport, and a Solar tile. The ? ring now shows only on terms that need it (Gust, Pressure).",
+            "Needs Weather Lab 0.37.8 or newer on the PC for the trend lines, peaks and visibility.",
+        ),
+    ),
+    NewsEntry(
         "0.7.3", "October 24, 2026",
         listOf(
             "A blue ? ring now sits beside weather terms like Humidity, Gust, Pressure and UV index. Tap it to read what the term means.",

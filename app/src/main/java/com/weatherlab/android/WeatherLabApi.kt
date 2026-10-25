@@ -31,7 +31,15 @@ data class Snapshot(
     val history: History? = null,
     val week: Week? = null,
     val storm: Storm? = null,
+    val tiles: Tiles? = null,
+    val airport: Airport? = null,
 )
+
+/**
+ * What the Live tiles show besides the latest reading. From Weather Lab 0.37.8 and up; an older Weather Lab leaves
+ * it null and the tiles simply have no trend lines or peaks.
+ */
+data class Tiles(val series: Map<String, List<Double>>, val peaks: Map<String, Double?>, val pressureWord: String?)
 
 /** One day of the 7 and 30 day charts. Missing figures are null. */
 data class ChartDay(val date: String, val high: Double?, val low: Double?, val avg: Double?, val rain: Double?, val gust: Double?)
@@ -138,6 +146,7 @@ data class ApRow(val label: String, val station: Double?, val airport: Double?, 
 data class Airport(
     val available: Boolean, val reason: String, val name: String, val isAirport: Boolean, val distance: Double?,
     val distanceUnit: String, val time: String, val text: String, val rows: List<ApRow>,
+    val visibility: Measure? = null, val present: List<String> = emptyList(),
 )
 data class TropicalStorm(val name: String, val cls: String, val wind: Double?, val distance: Double?, val direction: String, val move: String)
 data class Tropics(
@@ -518,7 +527,23 @@ class WeatherLabApi(address: String, private val token: String) {
             j.optBoolean("available"), j.optString("reason"), j.optString("name"), j.optBoolean("airport"), j.num("distance"),
             j.optString("distance_unit"), j.optString("time"), j.optString("text"),
             j.each("rows") { ApRow(it.optString("label"), it.num("station"), it.num("airport"), it.optString("unit")) },
+            visibility = j.optJSONObject("visibility")?.let { Measure(it.optDouble("value"), it.optString("unit")) },
+            present = j.strings("present"),
         )
+    }
+
+    fun tiles(): Tiles {
+        val j = get("/api/v1/tiles")
+        val series = HashMap<String, List<Double>>()
+        j.optJSONObject("series")?.let { o ->
+            o.keys().forEach { k ->
+                val a = o.optJSONArray(k) ?: return@forEach
+                series[k] = (0 until a.length()).mapNotNull { i -> a.optJSONArray(i)?.let { p -> if (p.isNull(1)) null else p.optDouble(1) } }
+            }
+        }
+        val peaks = HashMap<String, Double?>()
+        j.optJSONObject("peaks")?.let { o -> o.keys().forEach { k -> peaks[k] = o.num(k) } }
+        return Tiles(series, peaks, j.optJSONObject("pressure")?.optString("word"))
     }
 
     fun tropics(): Tropics {
@@ -561,6 +586,7 @@ class WeatherLabApi(address: String, private val token: String) {
     fun snapshot(): Snapshot = Snapshot(
         status(), current(), today(), alerts(),
         history = optional { history() }, week = optional { week() }, storm = optional { storm() },
+        tiles = optional { tiles() }, airport = optional { airport() },
     )
 
     companion object {

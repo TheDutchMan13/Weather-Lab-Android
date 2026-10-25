@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,6 +52,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,9 +97,23 @@ fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: Strin
     // The running phone app shows plain tiles (no coloured edge), so the edge is off here too. Set to true to bring it back.
     val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
     val shape = RoundedCornerShape(16.dp)
+    val term = termForLabel(label)
+    var showTerm by remember { mutableStateOf(false) }
     val content: @Composable () -> Unit = {
         Column(Modifier.padding(14.dp)) {
-            Text(label, style = T.label, color = C.muted)
+            if (term == null) {
+                Text(label, style = T.label, color = C.muted)
+            } else {
+                // The label and its ? open the explanation together, so the tap target is wider than the ring.
+                Row(
+                    Modifier.clickable { showTerm = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(label, style = T.label, color = C.muted)
+                    TermHelpMark(term)
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text(value, style = T.value, color = color ?: C.text)
             if (sub != null) {
@@ -106,7 +126,10 @@ fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: Strin
         modifier
             .clip(shape)
             .background(C.card)
-            .clearAndSetSemantics { contentDescription = "$label: $value${if (sub == null) "" else ", $sub"}" },
+            .then(
+                if (term == null) Modifier.clearAndSetSemantics { contentDescription = "$label: $value${if (sub == null) "" else ", $sub"}" }
+                else Modifier.semantics(mergeDescendants = true) {},
+            ),
     ) {
         if (accent == null) content()
         else Row(Modifier.height(IntrinsicSize.Min)) {
@@ -114,6 +137,7 @@ fun Tile(label: String, value: String, modifier: Modifier = Modifier, sub: Strin
             Box(Modifier.weight(1f)) { content() }
         }
     }
+    if (term != null && showTerm) TermSheet(term) { showTerm = false }
 }
 
 /** Two tiles per row, as on the phone app held upright. Rows share the height of their tallest tile. */

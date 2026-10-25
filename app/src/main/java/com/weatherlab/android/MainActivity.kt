@@ -312,7 +312,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 Tab.MORE -> when {
                     sub == MoreSub.MENU -> MorePage { sub = it }
                     sub == MoreSub.CHARTS -> ChartsPage(address, token)
-                    sub == MoreSub.DAYS && dayKey == null -> DaysPage(address, token) { dayKey = it }
+                    sub == MoreSub.DAYS && dayKey == null -> DailyPage(address, token) { dayKey = it }
                     sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
                     sub == MoreSub.RECORDS -> RecordsPage(address, token) { sub = it }
                     sub == MoreSub.RANKINGS -> RankingsPage(address, token)

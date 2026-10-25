@@ -44,8 +44,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// The pages behind the Storm tab and the More menu: Charts, Daily History (with Yesterday) and Records.
-// Charts, Daily History and Records need Weather Lab 0.35 or newer.
+// The pages behind the Storm tab and the More menu: Charts, Daily (with Yesterday) and Records.
+// Charts, Daily and Records need Weather Lab 0.35 or newer.
 
 internal val DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)
 
@@ -178,7 +178,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 enum class MoreSub(val label: String) {
     MENU("More"), CHARTS("Charts"), WIND("Wind Rose"), SUN("Sun and UV"), HEAT("Heat safety"),
     RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
-    DAYS("Daily History"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
+    DAYS("Daily"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),
     ON_THIS_DAY("On This Day"), COMPARE("Compare"), MONTH("Monthly Card"), YEAR("My Year"),
     MILESTONES("Season Milestones"), ANOMALIES("Anomalies"), ALERT_HISTORY("Alert History"),
@@ -207,7 +207,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
         ),
         "History" to listOf(
-            MoreItem(MoreSub.DAYS, "Yesterday, and any day of the last 60"),
+            MoreItem(MoreSub.DAYS, "One day, 7 days, 30 days or all, with charts and rain"),
             MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
             MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
             MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
@@ -307,60 +307,161 @@ fun ChartsPage(address: String, token: String) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Daily History
+// Daily
 
+private val DAILY_RANGES = listOf("1 day", "7 days", "30 days", "All")
+
+/** Daily: one day with previous and next, or 7 days, 30 days or all days together. All needs Weather Lab 0.37.22 or newer. */
 @Composable
-fun DaysPage(address: String, token: String, onOpen: (String) -> Unit) {
+fun DailyPage(address: String, token: String, onOpen: (String) -> Unit) {
+    var range by remember { mutableIntStateOf(1) }
     PageColumn {
         Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = { onOpen("yesterday") },
-            colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
-        ) { Text("Yesterday") }
-        Fetch(address, token, "days", { it.days() }) { list ->
-            Section("Last 60 days")
-            if (list.days.isEmpty()) {
-                EmptyCard("No daily summaries yet. They appear after the first full day of readings.")
-            } else {
-                ListPanel(
-                    list.days.map { d ->
-                        val row: @Composable () -> Unit = {
-                            Row(Modifier.fillMaxWidth().clickable { onOpen(d.date) }, verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    InfoRow(
-                                        left = dayName(d.date),
-                                        right = "${fmt(d.high)}° / ${fmt(d.low)}°",
-                                        sub = d.rain?.takeIf { it >= 0.01 }?.let { "Rain ${withUnit(it, list.rainUnit, decimalsFor(list.rainUnit))}" },
-                                    )
-                                }
-                                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
-                            }
-                        }
-                        row
-                    },
+        Chips(DAILY_RANGES, range) { range = it }
+        if (range == 0) OneDay(address, token) else DaySpan(address, token, listOf(0, 7, 30, null)[range], onOpen)
+    }
+}
+
+/** One day at a time, newest first from the list of days kept, with Previous and Next. */
+@Composable
+private fun OneDay(address: String, token: String) {
+    var index by remember { mutableIntStateOf(0) }
+    Fetch(address, token, "days", { it.days() }) { list ->
+        if (list.days.isEmpty()) {
+            EmptyCard("No daily summaries yet. They appear after the first full day of readings.")
+        } else {
+            val at = index.coerceIn(0, list.days.size - 1)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { index = at + 1 }, enabled = at < list.days.size - 1,
+                    colors = ButtonDefaults.buttonColors(containerColor = C.card, contentColor = C.text),
+                ) { Text("Previous") }
+                Text(dayName(list.days[at].date), style = T.body, color = C.text, modifier = Modifier.weight(1f))
+                Button(
+                    onClick = { index = at - 1 }, enabled = at > 0,
+                    colors = ButtonDefaults.buttonColors(containerColor = C.card, contentColor = C.text),
+                ) { Text("Next") }
+            }
+            DayDetailBody(address, token, list.days[at].date, showTitle = false)
+        }
+    }
+}
+
+/** Summary tiles, charts, the wind rose, rain totals and the list of days for the last 7 or 30 days, or all (days = null). */
+@Composable
+private fun DaySpan(address: String, token: String, days: Int?, onOpen: (String) -> Unit) {
+    Fetch(address, token, "span$days", { it.charts(days) }) { c ->
+        val held = c.days.filter { it.high != null || it.low != null || it.rain != null || it.gust != null }
+        if (held.isEmpty()) {
+            EmptyCard("No daily summaries yet. They appear after the first full day of readings.")
+            return@Fetch
+        }
+        Text("${held.size} days: ${dayName(held.first().date)} to ${dayName(held.last().date)}", style = T.label, color = C.muted)
+        val hottest = held.filter { it.high != null }.maxByOrNull { it.high!! }
+        val coolest = held.filter { it.low != null }.minByOrNull { it.low!! }
+        val windiest = held.filter { it.gust != null }.maxByOrNull { it.gust!! }
+        val rainDays = held.filter { (it.rain ?: 0.0) >= 0.01 }
+        TileGrid(
+            tiles(
+                Triple("Hottest day", withUnit(hottest?.high, c.tempUnit, 0), hottest?.let { dayName(it.date) }),
+                Triple("Coolest night", withUnit(coolest?.low, c.tempUnit, 0), coolest?.let { dayName(it.date) }),
+                Triple("Windiest gust", withUnit(windiest?.gust, c.windUnit, 0), windiest?.let { dayName(it.date) }),
+                Triple("Rain", withUnit(held.sumOf { it.rain ?: 0.0 }, c.rainUnit, decimalsFor(c.rainUnit)), "${rainDays.size} wet days"),
+            ),
+        )
+        fun series(pick: (ChartDay) -> Double?): Pair<List<Double>, List<String>> {
+            val kept = held.filter { pick(it) != null }
+            return kept.map { pick(it)!! } to kept.map { dayName(it.date) }
+        }
+        if (c.tempPoints.size > 1) {
+            Section("Temperature")
+            Panel { TouchLine(c.tempPoints.map { it.second }, c.tempPoints.map { pointTime(it.first) }, c.tempUnit) }
+        }
+        val high = series { it.high }
+        Section("High each day")
+        Panel { TouchLine(high.first, high.second, c.tempUnit) }
+        val avg = series { it.avg }
+        if (avg.first.size > 1) {
+            Section("Average each day")
+            Panel { TouchLine(avg.first, avg.second, c.tempUnit) }
+        }
+        val low = series { it.low }
+        Section("Low each day")
+        Panel { TouchLine(low.first, low.second, c.tempUnit) }
+        Section("Rain")
+        Panel {
+            if (rainDays.isEmpty()) Text("No rain in this period.", style = T.body, color = C.muted)
+            else TouchBars(held.map { it.rain }, held.map { dayName(it.date) }, c.rainUnit)
+        }
+        val gust = series { it.gust }
+        if (gust.first.size > 1) {
+            Section("Highest gust each day")
+            Panel { TouchLine(gust.first, gust.second, " ${c.windUnit}") }
+        }
+        Fetch(address, token, "spanwind$days", { it.windRose(days) }) { w ->
+            if (w.total > 0) {
+                Section("Wind rose for this period")
+                Panel { WindRoseChart(w) }
+                Text(
+                    "Most often from the ${w.dominant ?: "--"}. Average wind ${withUnit(w.average, w.unit, 1)}, strongest gust ${withUnit(w.strongestGust, w.unit, 0)}.",
+                    style = T.label, color = C.muted,
                 )
             }
         }
+        if (c.rainTotals.isNotEmpty()) {
+            Section("Rain totals")
+            TileGrid(
+                tiles(
+                    Triple("Rain today", withUnit(c.rainTotals["today"], c.rainUnit, decimalsFor(c.rainUnit)), null),
+                    Triple("Last 7 days", withUnit(c.rainTotals["last_7_days"], c.rainUnit, decimalsFor(c.rainUnit)), null),
+                    Triple("This month", withUnit(c.rainTotals["this_month"], c.rainUnit, decimalsFor(c.rainUnit)), null),
+                    Triple("This year", withUnit(c.rainTotals["this_year"], c.rainUnit, decimalsFor(c.rainUnit)), null),
+                ),
+            )
+        }
+        Section("Days in this range")
+        ListPanel(
+            held.reversed().take(60).map { d ->
+                val row: @Composable () -> Unit = {
+                    Row(Modifier.fillMaxWidth().clickable { onOpen(d.date) }, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            InfoRow(
+                                left = dayName(d.date),
+                                right = "${fmt(d.high)}° / ${fmt(d.low)}°",
+                                sub = d.rain?.takeIf { it >= 0.01 }?.let { "Rain ${withUnit(it, c.rainUnit, decimalsFor(c.rainUnit))}" },
+                            )
+                        }
+                        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
+                    }
+                }
+                row
+            },
+        )
+        Text("Tap a day to see every figure for it.", style = T.label, color = C.muted)
     }
 }
 
 @Composable
 fun DayDetailPage(address: String, token: String, which: String) {
-    PageColumn {
-        Fetch(address, token, which, { it.day(which) }) { d ->
-            Section(if (which == "yesterday") "Yesterday, ${dayName(d.date)}" else dayName(d.date))
-            if (!d.found) {
-                EmptyCard("Weather Lab has no summary for this day.")
-            } else {
-                if (d.partial) Note("Today so far. Only the high, low and rain are live until the day ends.", C.muted)
-                if (d.estimated) Note("Imported from readings more than 5 minutes apart, so a high or a low can be a few degrees off.", C.warn)
-                ListPanel(
-                    d.values.map { v ->
-                        val row: @Composable () -> Unit = { InfoRow(v.label, withUnit(v.value, v.unit, decimalsFor(v.unit))) }
-                        row
-                    },
-                )
-            }
+    PageColumn { DayDetailBody(address, token, which, showTitle = true) }
+}
+
+/** Every figure kept for one day: "yesterday" or a date such as 2026-10-20. */
+@Composable
+private fun DayDetailBody(address: String, token: String, which: String, showTitle: Boolean) {
+    Fetch(address, token, which, { it.day(which) }) { d ->
+        if (showTitle) Section(if (which == "yesterday") "Yesterday, ${dayName(d.date)}" else dayName(d.date))
+        if (!d.found) {
+            EmptyCard("Weather Lab has no summary for this day.")
+        } else {
+            if (d.partial) Note("Today so far. Only the high, low and rain are live until the day ends.", C.muted)
+            if (d.estimated) Note("Imported from readings more than 5 minutes apart, so a high or a low can be a few degrees off.", C.warn)
+            ListPanel(
+                d.values.map { v ->
+                    val row: @Composable () -> Unit = { InfoRow(v.label, withUnit(v.value, v.unit, decimalsFor(v.unit))) }
+                    row
+                },
+            )
         }
     }
 }

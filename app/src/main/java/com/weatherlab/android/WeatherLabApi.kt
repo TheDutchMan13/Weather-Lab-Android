@@ -51,6 +51,8 @@ data class Charts(
     val days: List<ChartDay>, val tempUnit: String, val rainUnit: String, val windUnit: String,
     /** Temperature readings (timestamp in seconds, value): hourly for 7 days, every 3 hours for 30. */
     val tempPoints: List<Pair<Long, Double>> = emptyList(),
+    /** Rain today, the last 7 days, this month and this year, keyed today, last_7_days, this_month, this_year. */
+    val rainTotals: Map<String, Double?> = emptyMap(),
 )
 data class DayRow(val date: String, val high: Double?, val low: Double?, val rain: Double?)
 data class DayList(val days: List<DayRow>, val tempUnit: String, val rainUnit: String)
@@ -288,9 +290,9 @@ class WeatherLabApi(address: String, private val token: String) {
 
     private fun JSONObject.num(key: String): Double? = if (!has(key) || isNull(key)) null else optDouble(key)
 
-    /** days is 7 or 30. Needs Weather Lab 0.35 or newer. */
-    fun charts(days: Int): Charts {
-        val j = get("/api/v1/charts/$days")
+    /** days is 7 or 30, or null for every day kept. All needs Weather Lab 0.37.22 or newer. */
+    fun charts(days: Int?): Charts {
+        val j = get("/api/v1/charts/${days ?: "all"}")
         val list = j.optJSONArray("days")
         val out = if (list == null) emptyList() else (0 until list.length()).map { i ->
             val d = list.getJSONObject(i)
@@ -301,7 +303,9 @@ class WeatherLabApi(address: String, private val token: String) {
             val p = pts.optJSONArray(i) ?: return@mapNotNull null
             if (p.length() < 2 || p.isNull(1)) null else Pair(p.getLong(0), p.getDouble(1))
         }
-        return Charts(out, j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"), points)
+        val rt = j.optJSONObject("rain_totals")
+        val totals = if (rt == null) emptyMap() else rt.keys().asSequence().associateWith { rt.num(it) }
+        return Charts(out, j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"), points, totals)
     }
 
     fun days(): DayList {
@@ -391,12 +395,12 @@ class WeatherLabApi(address: String, private val token: String) {
         )
     }
 
-    /** days is 1, 7 or 30. */
-    fun windRose(days: Int): WindRose {
-        val j = get("/api/v1/wind/$days")
+    /** days is 1, 7 or 30, or null for all of it (Weather Lab 0.37.22 or newer). */
+    fun windRose(days: Int?): WindRose {
+        val j = get("/api/v1/wind/${days ?: "all"}")
         val bins = j.optJSONArray("bins")
         return WindRose(
-            days, j.optInt("total"), if (j.isNull("dominant")) null else j.optString("dominant"),
+            days ?: 0, j.optInt("total"), if (j.isNull("dominant")) null else j.optString("dominant"),
             if (bins == null) emptyList() else (0 until bins.length()).map { bins.getString(it) },
             j.each("directions") { d ->
                 val b = d.optJSONArray("bins")

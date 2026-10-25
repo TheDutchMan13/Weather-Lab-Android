@@ -369,7 +369,7 @@ fun WindPage(address: String, token: String) {
 }
 
 @Composable
-private fun WindRoseChart(w: WindRose) {
+internal fun WindRoseChart(w: WindRose) {
     val measurer = rememberTextMeasurer()
     val ring = C.line
     val label = C.muted
@@ -645,6 +645,13 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.7.9", "October 25, 2026",
+        listOf(
+            "Daily History is now Daily. Pick 1 day, 7 days, 30 days or All. Ranges show summary tiles (hottest day, coolest night, windiest gust, rain), charts, the wind rose for the period, rain totals for today, 7 days, this month and this year, and a list of days. 1 day has Previous and Next.",
+            "Needs Weather Lab 0.37.22 or newer on the PC.",
+        ),
+    ),
     NewsEntry(
         "0.7.8", "October 25, 2026",
         listOf(

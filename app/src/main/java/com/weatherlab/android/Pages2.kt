@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -338,10 +339,10 @@ fun RainEventsPage(address: String, token: String) {
 
 @Composable
 fun WindPage(address: String, token: String) {
-    var pick by remember { mutableIntStateOf(0) }
-    val periods = listOf(1, 7, 30)
+    var pick by remember { mutableIntStateOf(1) }
+    val periods = listOf(1, 7, 30, null)
     PageColumn {
-        Chips(listOf("24 hours", "7 days", "30 days"), pick) { pick = it }
+        Chips(listOf("24 hours", "7 days", "30 days", "All"), pick) { pick = it }
         Fetch(address, token, pick, { it.windRose(periods[pick]) }) { w ->
             if (w.total == 0) {
                 EmptyCard("No wind readings in this period yet.")
@@ -350,6 +351,7 @@ fun WindPage(address: String, token: String) {
                 TileGrid(
                     tiles(
                         Triple("Most common direction", w.dominant ?: "--", "wind comes from"),
+                        Triple("Calm", w.calmPercent?.let { "${one(it)}%" } ?: "--", "under 1 mph, not drawn"),
                         Triple("Average wind", withUnit(w.average, w.unit, 1), null),
                         Triple("Strongest gust", withUnit(w.strongestGust, w.unit, 0), null),
                     ),
@@ -405,7 +407,20 @@ internal fun WindRoseChart(w: WindRose) {
                 drawText(m, topLeft = Offset(x, y))
             }
         }
-        Text("Wedges point to where the wind comes from. Darker is stronger: ${w.bins.joinToString(", ")}.", style = T.label, color = C.muted)
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            w.bins.forEachIndexed { k, name ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).background(fill.copy(alpha = 0.3f + 0.7f * (k + 1) / w.bins.size)))
+                    Spacer(Modifier.width(5.dp))
+                    Text(name, style = T.label, color = C.muted)
+                }
+            }
+        }
+        Text(
+            "Wedges point to where the wind comes from. Darker is stronger." +
+                (w.calmPercent?.let { " Calm (under 1 mph) ${one(it)}% of the time is counted but not drawn." } ?: ""),
+            style = T.label, color = C.muted, modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
@@ -645,6 +660,13 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.7.12", "October 25, 2026",
+        listOf(
+            "Wind Rose is now Wind. Pick 24 hours, 7 days, 30 days or All. The rose is drawn in four bands (1, 2, 3-4 and 5+ mph) with a legend, and a Calm tile shows how often the wind was under 1 mph, which is counted but not drawn.",
+            "Needs Weather Lab 0.37.24 or newer on the PC.",
+        ),
+    ),
     NewsEntry(
         "0.7.11", "October 25, 2026",
         listOf(

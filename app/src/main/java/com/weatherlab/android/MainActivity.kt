@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -235,7 +238,15 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             TopAppBar(
                 title = {
                     val title = if (tab != Tab.MORE) tab.label else if (dayKey != null) "Day" else sub.label
-                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.W800)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(R.drawable.app_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(title, fontSize = 22.sp, fontWeight = FontWeight.W800)
+                    }
                 },
                 navigationIcon = {
                     if (inSub) {

@@ -176,7 +176,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 // More menu
 
 enum class MoreSub(val label: String) {
-    MENU("More"), CHARTS("Charts"), WIND("Wind Rose"), SUN("Sun and UV"), HEAT("Heat Safety"),
+    MENU("More"), CHARTS("Charts"), WIND("Wind Rose"), SUN("Sun and UV"), HEAT("Heat safety"),
     RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
     DAYS("Daily History"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),
@@ -195,7 +195,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
             MoreItem(MoreSub.WIND, "Where the wind comes from"),
             MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
-            MoreItem(MoreSub.HEAT, "Heat index, advice and hot days"),
+            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
             MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
             MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),

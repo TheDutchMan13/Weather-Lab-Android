@@ -661,6 +661,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.13", "October 25, 2026",
+        listOf(
+            "The More menu has the same sections as the PC: Now, History, Air, sun and heat, Forecast and storms, Season, Tools, Health and Settings. Some pages are renamed to match: Unusual days, Replay, Export, Air, Sun, and Station is now Sensors and Health.",
+        ),
+    ),
+    NewsEntry(
         "0.7.12", "October 25, 2026",
         listOf(
             "Wind Rose is now Wind. Pick 24 hours, 7 days, 30 days or All. The rose is drawn in four bands (1, 2, 3-4 and 5+ mph) with a legend, and a Calm tile shows how often the wind was under 1 mph, which is counted but not drawn.",

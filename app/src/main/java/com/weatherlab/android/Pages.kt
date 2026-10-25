@@ -176,14 +176,14 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 // More menu
 
 enum class MoreSub(val label: String) {
-    MENU("More"), CHARTS("Charts"), WIND("Wind"), SUN("Sun and UV"), HEAT("Heat safety"),
-    RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
+    MENU("More"), CHARTS("Charts"), WIND("Wind"), SUN("Sun"), HEAT("Heat safety"),
+    RAIN_CAL("Rain calendar"), RAIN_EVENTS("Rain events"), LIGHTNING("Lightning"),
     DAYS("Daily"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
-    STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),
-    ON_THIS_DAY("On This Day"), COMPARE("Compare"), MONTH("Monthly Card"), YEAR("My Year"),
-    MILESTONES("Season Milestones"), ANOMALIES("Anomalies"), ALERT_HISTORY("Alert History"),
-    FC_ACCURACY("Forecast Accuracy"), EXPORT("Export Data"), REWIND("Season Rewind"),
-    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air and Smoke"), PUSH("Phone Alerts"),
+    STATION("Sensors and Health"), WHATS_NEW("What's New"), SETTINGS("Settings"),
+    ON_THIS_DAY("On this day"), COMPARE("Compare"), MONTH("Monthly card"), YEAR("My year"),
+    MILESTONES("Season milestones"), ANOMALIES("Unusual days"), ALERT_HISTORY("Alert history"),
+    FC_ACCURACY("Forecast accuracy"), EXPORT("Export"), REWIND("Replay"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String)
@@ -191,38 +191,46 @@ private data class MoreItem(val sub: MoreSub, val about: String)
 @Composable
 fun MorePage(onOpen: (MoreSub) -> Unit) {
     val groups = listOf(
-        "Weather" to listOf(
-            MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
-            MoreItem(MoreSub.WIND, "Where the wind comes from"),
-            MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
-            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
-            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
-            MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
-            MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
-        ),
-        "Rain and storms" to listOf(
-            MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
-            MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
-            MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
-            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
+        "Now" to listOf(
+            MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
         ),
         "History" to listOf(
             MoreItem(MoreSub.DAYS, "One day, 7 days, 30 days or all, with charts and rain"),
             MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
             MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
-            MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
-            MoreItem(MoreSub.COMPARE, "This year against last year"),
-            MoreItem(MoreSub.MONTH, "A card for any month"),
-            MoreItem(MoreSub.YEAR, "A year in review"),
-            MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
-            MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
-            MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
+            MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
+        ),
+        "Air, sun and heat" to listOf(
+            MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
+            MoreItem(MoreSub.WIND, "Where the wind comes from"),
+            MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
+            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
+            MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
+        ),
+        "Forecast and storms" to listOf(
             MoreItem(MoreSub.FC_ACCURACY, "How close the forecast highs were"),
+            MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
+            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
+            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
+        ),
+        "Season" to listOf(
+            MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
+            MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
+            MoreItem(MoreSub.YEAR, "A year in review"),
+            MoreItem(MoreSub.MONTH, "A card for any month"),
+            MoreItem(MoreSub.COMPARE, "This year against last year"),
+            MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
+            MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
+        ),
+        "Tools" to listOf(
+            MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
             MoreItem(MoreSub.REWIND, "Replay any past day"),
             MoreItem(MoreSub.EXPORT, "Send your daily summaries as a CSV"),
         ),
-        "App" to listOf(
+        "Health" to listOf(
             MoreItem(MoreSub.STATION, "Data health, sensors, batteries"),
+        ),
+        "Settings" to listOf(
             MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
             MoreItem(MoreSub.WHATS_NEW, "Everything added"),
             MoreItem(MoreSub.SETTINGS, "Connection, notifications, look"),

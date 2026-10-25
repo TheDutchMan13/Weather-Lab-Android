@@ -91,6 +91,7 @@ private fun measureAccent(label: String): Color? = when (label) {
     "Indoor humidity" -> Color(0xFF6E78AE)
     "Indoor temperature" -> Color(0xFFE8833A)
     "Rain today" -> Color(0xFF4F9CF7)
+    "Dew point" -> Color(0xFF4F9CF7)
     "Pressure" -> Color(0xFFA78BFA)
     "Rain rate" -> Color(0xFF8A5CF0)
     "UV index" -> Color(0xFFF6D55C)

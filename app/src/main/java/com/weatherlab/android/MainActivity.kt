@@ -435,6 +435,15 @@ private fun rangeText(t: LiveTile, line: List<Double>?): String? {
 
 private val COMPASS = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
 
+/** The dew point in plain words, with the same limits as the Windows app. [fahrenheit] is the dew point in °F. */
+private fun dewWord(fahrenheit: Double): String = when {
+    fahrenheit < 55 -> "dry and comfortable"
+    fahrenheit < 60 -> "comfortable"
+    fahrenheit < 65 -> "a little humid"
+    fahrenheit < 70 -> "muggy"
+    else -> "oppressive"
+}
+
 private fun compass(deg: Double): String = COMPASS[(((deg % 360 + 360) % 360 + 11.25) / 22.5).toInt() % 16]
 
 /** "6:47 PM" in this phone's time zone from an ISO time such as 2026-10-24T01:47:00+00:00, or null when it can't be read. */
@@ -539,7 +548,7 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
             Spacer(Modifier.height(6.dp))
             Text(conditionWord(kind), fontSize = 17.sp, fontWeight = FontWeight.W700, color = C.text)
             Spacer(Modifier.height(8.dp))
-            Text("Feels like ${deg1(v["feelslikef"])} · Dew point ${deg1(v["dewpointf"])}", style = T.body, color = C.muted)
+            Text("Feels like ${deg1(v["feelslikef"])}", style = T.body, color = C.muted)
             Text("Today: high ${deg(s.today.high)} · low ${deg(s.today.low)}", style = T.body, color = C.muted)
         }
     }
@@ -599,6 +608,19 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
                 )
             }
         }
+    }
+
+    // Dew point at the bottom, with its last 24 hours. Tap it for its history.
+    v["dewpointf"]?.let { d ->
+        val line = s.tiles?.series?.get("dewpointf")
+        val f = if (d.unit.contains("C")) d.value * 9 / 5 + 32 else d.value
+        Spacer(Modifier.height(16.dp))
+        val card = LiveTile("Dew point", reading("dewpointf", d), null, "dewpointf", "dewpointf")
+        Tile(
+            card.label, card.value, Modifier.fillMaxWidth(), trend = line, range = rangeText(card, line),
+            onClick = { historyOf = Pair("dewpointf", "Dew point") },
+        )
+        Text("Dew point: ${dewWord(f)}. Tap the card for its history.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 6.dp))
     }
 }
 

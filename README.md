@@ -51,3 +51,7 @@ up somewhere safe (not in this folder).
    (the same as the keystore password, unless you chose another).
 4. Raise `versionCode` and `versionName` in `app/build.gradle.kts`, push, then tag it:
    `git tag v0.3.0` and `git push origin v0.3.0`. GitHub builds the signed APK and posts it under Releases.
+
+## License
+
+GNU GPL v3.0 or later. Copyright (C) 2026 Hans De Kryger. See `LICENSE`.

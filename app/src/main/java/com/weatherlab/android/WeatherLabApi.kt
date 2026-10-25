@@ -91,6 +91,8 @@ data class WindDir(val name: String, val bins: List<Double>, val percent: Double
 data class WindRose(
     val days: Int, val total: Int, val dominant: String?, val bins: List<String>, val directions: List<WindDir>,
     val average: Double?, val strongestGust: Double?, val unit: String,
+    /** Share of readings under 1 mph, counted in the total but not drawn. Needs Weather Lab 0.37.24. */
+    val calmPercent: Double? = null,
 )
 data class LightningDay(val date: String, val strikes: Int, val closest: Double?)
 data class LightningDays(val days: List<LightningDay>, val unit: String)
@@ -406,7 +408,7 @@ class WeatherLabApi(address: String, private val token: String) {
                 val b = d.optJSONArray("bins")
                 WindDir(d.optString("name"), if (b == null) emptyList() else (0 until b.length()).map { b.getDouble(it) }, d.optDouble("percent"))
             },
-            j.num("average"), j.num("strongest_gust"), j.optString("unit"),
+            j.num("average"), j.num("strongest_gust"), j.optString("unit"), j.num("calm_percent"),
         )
     }
 

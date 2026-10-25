@@ -176,7 +176,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 // More menu
 
 enum class MoreSub(val label: String) {
-    MENU("More"), CHARTS("Charts"), WIND("Wind Rose"), SUN("Sun and UV"), HEAT("Heat safety"),
+    MENU("More"), CHARTS("Charts"), WIND("Wind"), SUN("Sun and UV"), HEAT("Heat safety"),
     RAIN_CAL("Rain Calendar"), RAIN_EVENTS("Rain Events"), LIGHTNING("Lightning"),
     DAYS("Daily"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Station"), WHATS_NEW("What's New"), SETTINGS("Settings"),

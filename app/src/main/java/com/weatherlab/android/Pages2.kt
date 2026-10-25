@@ -597,6 +597,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.3", "October 24, 2026",
+        listOf(
+            "A blue ? ring now sits beside weather terms like Humidity, Gust, Pressure and UV index. Tap it to read what the term means.",
+        ),
+    ),
+    NewsEntry(
         "0.7.2", "October 24, 2026",
         listOf(
             "The Weather Lab logo shows in the top bar on every screen.",

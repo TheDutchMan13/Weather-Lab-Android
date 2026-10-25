@@ -12,7 +12,7 @@ Windows reference: Weather Lab 0.37.19 (https://github.com/TheDutchMan13/Weather
 | 4 | Live trend charts | 24-hour line with low and high on the Air and Wind and rain cards | Plain numbers on those cards |
 | 5 | Dew point card | Card at the bottom of Live with a 24-hour trend | Dew point as text under feels like |
 | 6 | Wind (renamed from Wind Rose) | Bands 1, 2, 3-4 and 5+ mph, calm shown separately | Draws the bands the PC sends; check the calm percentage |
-| 7 | Question-mark help icons | Removed everywhere | Check whether TermHelp still shows them; remove if so |
+| 7 | Question-mark help icons | Removed everywhere | Skipped on purpose: the Android app keeps its ? icons, only the Windows app dropped them |
 | 8 | More menu regroup | Now, History, Air sun and heat, Forecast and storms, Season, Tools, Health, Settings; Station becomes Sensors and Health | Weather, Rain and storms, History, App |
 | 9 | What's New and version | An entry per feature | Newest entry is 0.7.6; each item adds an entry and a version bump |
 

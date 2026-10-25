@@ -99,7 +99,7 @@ private fun measureAccent(label: String): Color? = when (label) {
 @Composable
 fun Tile(
     label: String, value: String, modifier: Modifier = Modifier, sub: String? = null, color: Color? = null,
-    trend: List<Double>? = null,
+    trend: List<Double>? = null, onClick: (() -> Unit)? = null,
 ) {
     // Tiles for known measures get a 4 dp coloured left edge and, when given, a 24-hour line, as on the phone app.
     val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
@@ -137,6 +137,7 @@ fun Tile(
         modifier
             .clip(shape)
             .background(C.card)
+            .then(if (onClick != null) Modifier.clickable(onClickLabel = "Show history", onClick = onClick) else Modifier)
             .then(
                 if (term == null) Modifier.clearAndSetSemantics { contentDescription = "$label: $value${if (sub == null) "" else ", $sub"}" }
                 else Modifier.semantics(mergeDescendants = true) {},

@@ -303,6 +303,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         tab = Tab.MORE
                         sub = MoreSub.SETTINGS
                     },
+                    address = address, token = token,
                 ) }
                 Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) { ForecastPage(address, token) }
                 Tab.STORM -> Paned(wide, { LightningPage(address, token) }) { StormPage(snapshot, stormOn) }
@@ -384,6 +385,8 @@ private fun LivePage(
     configured: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
+    address: String = "",
+    token: String = "",
 ) {
     PullToRefreshBox(isRefreshing = loading && snapshot != null, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -405,7 +408,7 @@ private fun LivePage(
                 snapshot == null -> LoadingCard()
                 else -> {
                     if (error != null) Note(error, C.warn)
-                    Dashboard(snapshot)
+                    Dashboard(snapshot, address, token)
                 }
             }
         }
@@ -413,7 +416,7 @@ private fun LivePage(
 }
 
 /** One tile of the Live page: what it says, a small line under the figure, and which 24-hour series it draws. */
-private class LiveTile(val label: String, val value: String, val sub: String? = null, val series: String? = null)
+private class LiveTile(val label: String, val value: String, val sub: String? = null, val series: String? = null, val history: String? = null)
 
 private val COMPASS = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
 
@@ -436,13 +439,13 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
     }
     val out = ArrayList<LiveTile>()
     v["humidity"]?.let { m ->
-        out += LiveTile("Humidity", reading("humidity", m), v["humidityin"]?.let { "Indoor ${Math.round(it.value)}%" }, "humidity")
+        out += LiveTile("Humidity", reading("humidity", m), v["humidityin"]?.let { "Indoor ${Math.round(it.value)}%" }, "humidity", "humidity")
     }
     v["windspeedmph"]?.let { m ->
-        out += LiveTile("Wind", reading("windspeedmph", m), v["winddir"]?.let { compass(it.value) }, "windspeedmph")
+        out += LiveTile("Wind", reading("windspeedmph", m), v["winddir"]?.let { compass(it.value) }, "windspeedmph", "windspeedmph")
     }
     v["windgustmph"]?.let { m ->
-        out += LiveTile("Gust", reading("windgustmph", m), peak("windgustmph", 1)?.let { "Peak today $it" }, "windgustmph")
+        out += LiveTile("Gust", reading("windgustmph", m), peak("windgustmph", 1)?.let { "Peak today $it" }, "windgustmph", "windgustmph")
     }
     v["baromrelin"]?.let { m ->
         val word = tl?.pressureWord
@@ -452,7 +455,7 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
             word.startsWith("falling") -> "\u2193 "
             else -> "\u2192 "
         }
-        out += LiveTile("Pressure", reading("baromrelin", m), word?.let { arrow + it }, "baromrelin")
+        out += LiveTile("Pressure", reading("baromrelin", m), word?.let { arrow + it }, "baromrelin", "baromrelin")
     }
     s.airport?.let { a ->
         val vis = a.visibility
@@ -463,17 +466,19 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
             out += LiveTile("Visibility", "${"%.1f".format(vis.value)} ${vis.unit}", sub)
         }
     }
-    v["uv"]?.let { m -> out += LiveTile("UV index", reading("uv", m), peak("uv", 0)?.let { "Peak today $it" }) }
+    v["uv"]?.let { m -> out += LiveTile("UV index", reading("uv", m), peak("uv", 0)?.let { "Peak today $it" }, null, "uv") }
     v["solarradiation"]?.let { m ->
-        out += LiveTile("Solar", reading("solarradiation", m), peak("solarradiation", 0)?.let { "Peak today $it" }, "solarradiation")
+        out += LiveTile("Solar", reading("solarradiation", m), peak("solarradiation", 0)?.let { "Peak today $it" }, "solarradiation", "solarradiation")
     }
-    v["rainratein"]?.let { m -> out += LiveTile("Rain rate", reading("rainratein", m)) }
-    v["dailyrainin"]?.let { m -> out += LiveTile("Rain today", reading("dailyrainin", m)) }
+    v["rainratein"]?.let { m -> out += LiveTile("Rain rate", reading("rainratein", m), null, null, "rainratein") }
+    v["dailyrainin"]?.let { m -> out += LiveTile("Rain today", reading("dailyrainin", m), null, null, "dailyrainin") }
     return out
 }
 
 @Composable
-private fun Dashboard(s: Snapshot) {
+private fun Dashboard(s: Snapshot, address: String, token: String) {
+    var historyOf by remember { mutableStateOf<Pair<String, String>?>(null) }
+    historyOf?.let { (key, title) -> MeasureHistorySheet(address, token, key, title) { historyOf = null } }
     val v = s.current.values
     val age = s.current.ageSeconds ?: s.status.ageSeconds
     val ageMin = age?.let { it / 60 }
@@ -527,7 +532,10 @@ private fun Dashboard(s: Snapshot) {
     TileGrid(
         liveTiles(s).map { t ->
             val item: @Composable (Modifier) -> Unit = { mod ->
-                Tile(t.label, t.value, mod, sub = t.sub, trend = t.series?.let { k -> s.tiles?.series?.get(k) ?: emptyList() })
+                Tile(
+                    t.label, t.value, mod, sub = t.sub, trend = t.series?.let { k -> s.tiles?.series?.get(k) ?: emptyList() },
+                    onClick = t.history?.let { k -> { historyOf = Pair(k, t.label) } },
+                )
             }
             item
         },

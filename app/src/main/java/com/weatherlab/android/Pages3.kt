@@ -190,6 +190,7 @@ fun MonthCardPage(address: String, token: String) {
                         Triple("Strongest gust", wind.first, wind.second),
                     ),
                 )
+                ShareButton("Share this month") { shareMonthCard(it, c) }
                 val highs = c.daily.filter { it.high != null }
                 if (highs.size > 1) {
                     Section("High each day")

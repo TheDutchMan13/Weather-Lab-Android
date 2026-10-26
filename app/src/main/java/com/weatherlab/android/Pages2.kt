@@ -661,6 +661,14 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.15", "October 26, 2026",
+        listOf(
+            "Live keeps the last reading when your PC can't be reached. A yellow banner says it is offline and how old the reading is, with a Try again button, and the figures stay on screen instead of an error. The phone remembers the last reading even after you close the app.",
+            "Share a day or a month as a picture. The Daily page has Share this day (or Share today so far), and the Monthly card has Share this month. Each makes a picture like the year card and opens the share sheet.",
+            "The morning briefing notification is on the PC side: turn it on in Weather Lab under Settings, Notifications (Weather Lab 0.37.28). It arrives on this phone through your phone alerts.",
+        ),
+    ),
+    NewsEntry(
         "0.7.14", "October 26, 2026",
         listOf(
             "A briefing card at the top of Live: one sentence about today. Tap it for the full Briefing page with the expected high against yesterday and the same day last year, last night's low, heat index peak, UV, rain chance, wind and a short list of things worth knowing. It also sits first in the More menu. Needs Weather Lab 0.37.26 or newer on your PC.",

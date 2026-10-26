@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -77,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -171,6 +173,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var address by remember { mutableStateOf(prefs.address) }
     var token by remember { mutableStateOf(prefs.token) }
     var snapshot by remember { mutableStateOf<Snapshot?>(null) }
+    var fetchedAt by remember { mutableStateOf<Long?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var reloadCount by remember { mutableIntStateOf(0) }
@@ -199,11 +202,22 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             if (pauseBg) AppState.foreground.first { it }
             loading = true
             try {
-                snapshot = withContext(Dispatchers.IO) { WeatherLabApi(address, token).snapshot() }
+                snapshot = withContext(Dispatchers.IO) {
+                    val api = WeatherLabApi(address, token)
+                    api.snapshot().also { SnapshotCache.save(context, api.recorded) }
+                }
+                fetchedAt = System.currentTimeMillis()
                 error = null
                 StormWatch.update(context, snapshot?.storm, stormOn)
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't reach Weather Lab."
+                // Nothing in memory yet (the app was just opened): fall back to the last snapshot saved on the phone.
+                if (snapshot == null) {
+                    withContext(Dispatchers.IO) { SnapshotCache.load(context) }?.let { (saved, at) ->
+                        snapshot = saved
+                        fetchedAt = at
+                    }
+                }
             }
             loading = false
             delay(60_000)
@@ -300,6 +314,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     snapshot = snapshot, error = error, loading = loading,
                     configured = address.isNotBlank() && token.isNotBlank(),
                     onRefresh = { reloadCount++ },
+                    offlineSince = if (error != null) fetchedAt else null,
                     onOpenSettings = {
                         tab = Tab.MORE
                         sub = MoreSub.SETTINGS
@@ -394,6 +409,7 @@ private fun LivePage(
     address: String = "",
     token: String = "",
     onOpenBriefing: () -> Unit = {},
+    offlineSince: Long? = null,
 ) {
     PullToRefreshBox(isRefreshing = loading && snapshot != null, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -414,9 +430,10 @@ private fun LivePage(
                 snapshot == null && error != null -> ErrorBox(error, onRefresh, title = "Couldn't reach Weather Lab")
                 snapshot == null -> LoadingCard()
                 else -> {
-                    if (error != null) Note(error, C.warn)
+                    if (error != null && offlineSince != null) OfflineBanner(snapshot, offlineSince, onRefresh)
+                    else if (error != null) Note(error, C.warn)
                     BriefingCard(address, token, onOpenBriefing)
-                    Dashboard(snapshot, address, token)
+                    Box(Modifier.alpha(if (offlineSince != null && error != null) 0.85f else 1f)) { Dashboard(snapshot, address, token) }
                 }
             }
         }

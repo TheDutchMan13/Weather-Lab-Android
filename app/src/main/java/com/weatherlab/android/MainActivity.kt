@@ -433,7 +433,10 @@ private fun LivePage(
                     if (error != null && offlineSince != null) OfflineBanner(snapshot, offlineSince, onRefresh)
                     else if (error != null) Note(error, C.warn)
                     BriefingCard(address, token, onOpenBriefing)
-                    Box(Modifier.alpha(if (offlineSince != null && error != null) 0.85f else 1f)) { Dashboard(snapshot, address, token) }
+                    // A Column, not a Box: a Box stacks its children on top of each other, which hid the current-conditions card.
+                    Column(Modifier.fillMaxWidth().alpha(if (offlineSince != null && error != null) 0.85f else 1f)) {
+                        Dashboard(snapshot, address, token)
+                    }
                 }
             }
         }

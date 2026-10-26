@@ -161,7 +161,11 @@ data class YearCard(
     val hottest: Extreme?, val coldest: Extreme?, val windiest: Extreme?,
     val days90: Int, val days100: Int, val freezingNights: Int, val longestDry: Run?, val longestWet: Run?,
     val years: List<Int>, val tempUnit: String, val rainUnit: String, val windUnit: String,
+    val wettest: Extreme? = null, val longestHot: Run? = null,
 )
+/** One figure of the daily briefing, already written out ("108°F", "10%", "S 10 mph"); [value] is null when there is no data. */
+data class BriefingTile(val label: String, val value: String?, val note: String?)
+data class Briefing(val date: String, val headline: String, val forecast: Boolean, val tiles: List<BriefingTile>, val notes: List<String>)
 data class MsYear(val year: Int, val first: String, val last: String, val count: Int)
 data class Milestone(val label: String, val years: List<MsYear>)
 data class Anomaly(val label: String, val kind: String, val value: Double?, val usual: Double?, val unit: String, val time: String)
@@ -540,6 +544,25 @@ class WeatherLabApi(address: String, private val token: String) {
             j.extreme("hottest"), j.extreme("coldest"), j.extreme("windiest"),
             j.optInt("days_90"), j.optInt("days_100"), j.optInt("freezing_nights"), j.runOf("longest_dry"), j.runOf("longest_wet"),
             j.ints("years"), j.optString("temp_unit"), j.optString("rain_unit"), j.optString("wind_unit"),
+            j.extreme("wettest"), j.runOf("longest_hot"),
+        )
+    }
+
+    /** Today at a glance (needs Weather Lab 0.37.26 or newer). */
+    fun briefing(): Briefing {
+        val j = get("/api/v1/briefing")
+        return Briefing(
+            j.optString("date"), j.optString("headline"), j.optBoolean("forecast"),
+            j.each("tiles") { t ->
+                val unit = t.optString("unit")
+                val value = if (!t.has("value") || t.isNull("value")) null else {
+                    val raw = t.get("value")
+                    val text = if (raw is Number) (if (raw.toDouble() % 1.0 == 0.0) raw.toLong().toString() else "%.1f".format(raw.toDouble())) else raw.toString()
+                    if (unit == "%" || unit.startsWith("°")) text + unit else if (unit.isBlank()) text else "$text $unit"
+                }
+                BriefingTile(t.optString("label"), value, t.text("note"))
+            },
+            j.strings("notes"),
         )
     }
 

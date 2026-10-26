@@ -201,11 +201,16 @@ data class PushInfo(val server: String, val topic: String)
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
 /** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET with the token in the header. */
-class WeatherLabApi(address: String, private val token: String) {
+class WeatherLabApi(address: String, private val token: String, private val saved: Map<String, String>? = null) {
 
     private val base: String = normalise(address)
 
+    /** The raw answer to each request that worked, by path, so the phone can keep the last snapshot for offline use. */
+    val recorded = linkedMapOf<String, String>()
+
     private fun get(path: String): JSONObject {
+        // Built from saved answers (offline mode): no network.
+        if (saved != null) return JSONObject(saved[path] ?: throw ApiException("Not saved.", 0))
         val conn = URL(base + path).openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 5000
@@ -218,6 +223,7 @@ class WeatherLabApi(address: String, private val token: String) {
             if (code !in 200..299) {
                 throw ApiException(json.optString("error", "Weather Lab answered with status $code."), code)
             }
+            if (path in SAVED_PATHS) recorded[path] = text
             return json
         } finally {
             conn.disconnect()
@@ -690,6 +696,12 @@ class WeatherLabApi(address: String, private val token: String) {
     )
 
     companion object {
+        /** The requests snapshot() makes; their answers are what the phone keeps for offline use. */
+        private val SAVED_PATHS = setOf(
+            "/api/v1/status", "/api/v1/current", "/api/v1/today", "/api/v1/alerts", "/api/v1/history", "/api/v1/week",
+            "/api/v1/storm", "/api/v1/tiles", "/api/v1/airport",
+        )
+
         /** Accepts "192.168.1.50:8600", "http://192.168.1.50:8600" or a bare address, and returns "http://host:port". */
         fun normalise(address: String): String {
             // Also accepts a pasted full address such as http://192.168.1.50:8600/api/v1/status.

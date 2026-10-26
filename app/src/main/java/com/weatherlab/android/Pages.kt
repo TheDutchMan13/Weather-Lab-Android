@@ -471,6 +471,7 @@ private fun DayDetailBody(address: String, token: String, which: String, showTit
                     row
                 },
             )
+            ShareButton(if (d.partial) "Share today so far" else "Share this day") { shareDayCard(it, d) }
         }
     }
 }

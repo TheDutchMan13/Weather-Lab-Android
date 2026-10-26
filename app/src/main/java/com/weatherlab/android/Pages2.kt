@@ -661,6 +661,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.16", "October 26, 2026",
+        listOf(
+            "Fixed the Live page: the current-conditions card (temperature, sky, feels like, today's high and low) is back at the top under the briefing. It had been drawn underneath the tiles since 0.7.14.",
+        ),
+    ),
+    NewsEntry(
         "0.7.15", "October 26, 2026",
         listOf(
             "Live keeps the last reading when your PC can't be reached. A yellow banner says it is offline and how old the reading is, with a Try again button, and the figures stay on screen instead of an error. The phone remembers the last reading even after you close the app.",

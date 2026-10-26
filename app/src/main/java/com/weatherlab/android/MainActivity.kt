@@ -305,12 +305,17 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         sub = MoreSub.SETTINGS
                     },
                     address = address, token = token,
+                    onOpenBriefing = {
+                        tab = Tab.MORE
+                        sub = MoreSub.BRIEFING
+                    },
                 ) }
                 Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) { ForecastPage(address, token) }
                 Tab.STORM -> Paned(wide, { LightningPage(address, token) }) { StormPage(snapshot, stormOn) }
                 Tab.ALERTS -> AlertsPage(snapshot)
                 Tab.MORE -> when {
                     sub == MoreSub.MENU -> MorePage { sub = it }
+                    sub == MoreSub.BRIEFING -> BriefingPage(address, token)
                     sub == MoreSub.CHARTS -> ChartsPage(address, token)
                     sub == MoreSub.DAYS && dayKey == null -> DailyPage(address, token) { dayKey = it }
                     sub == MoreSub.DAYS -> DayDetailPage(address, token, dayKey.orEmpty())
@@ -388,6 +393,7 @@ private fun LivePage(
     onOpenSettings: () -> Unit,
     address: String = "",
     token: String = "",
+    onOpenBriefing: () -> Unit = {},
 ) {
     PullToRefreshBox(isRefreshing = loading && snapshot != null, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -409,6 +415,7 @@ private fun LivePage(
                 snapshot == null -> LoadingCard()
                 else -> {
                     if (error != null) Note(error, C.warn)
+                    BriefingCard(address, token, onOpenBriefing)
                     Dashboard(snapshot, address, token)
                 }
             }

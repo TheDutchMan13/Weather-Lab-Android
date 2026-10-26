@@ -176,7 +176,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 // More menu
 
 enum class MoreSub(val label: String) {
-    MENU("More"), CHARTS("Charts"), WIND("Wind"), SUN("Sun"), HEAT("Heat safety"),
+    MENU("More"), BRIEFING("Briefing"), CHARTS("Charts"), WIND("Wind"), SUN("Sun"), HEAT("Heat safety"),
     RAIN_CAL("Rain calendar"), RAIN_EVENTS("Rain events"), LIGHTNING("Lightning"),
     DAYS("Daily"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Sensors and Health"), WHATS_NEW("What's New"), SETTINGS("Settings"),
@@ -192,6 +192,7 @@ private data class MoreItem(val sub: MoreSub, val about: String)
 fun MorePage(onOpen: (MoreSub) -> Unit) {
     val groups = listOf(
         "Now" to listOf(
+            MoreItem(MoreSub.BRIEFING, "Today at a glance, against yesterday and last year"),
             MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
         ),
         "History" to listOf(

@@ -661,6 +661,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.14", "October 26, 2026",
+        listOf(
+            "A briefing card at the top of Live: one sentence about today. Tap it for the full Briefing page with the expected high against yesterday and the same day last year, last night's low, heat index peak, UV, rain chance, wind and a short list of things worth knowing. It also sits first in the More menu. Needs Weather Lab 0.37.26 or newer on your PC.",
+            "My year has a Share this year button. It makes a picture of the year's best numbers (hottest day, days at 100°F or more, longest hot streak, wettest day, rain and highest gust) and opens the share sheet. The streak and wettest day need Weather Lab 0.37.27 or newer.",
+        ),
+    ),
+    NewsEntry(
         "0.7.13", "October 25, 2026",
         listOf(
             "The More menu has the same sections as the PC: Now, History, Air, sun and heat, Forecast and storms, Season, Tools, Health and Settings. Some pages are renamed to match: Unusual days, Replay, Export, Air, Sun, and Station is now Sensors and Health.",

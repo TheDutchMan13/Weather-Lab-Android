@@ -216,6 +216,8 @@ fun MonthCardPage(address: String, token: String) {
 @Composable
 fun YearPage(address: String, token: String) {
     var year by remember { mutableIntStateOf(LocalDate.now().year) }
+    val context = LocalContext.current
+    var shareError by remember { mutableStateOf<String?>(null) }
     PageColumn {
         Fetch(address, token, year, { it.yearCard(year) }) { c ->
             if (c.years.isNotEmpty()) Chips(c.years.map { it.toString() }, c.years.indexOf(year)) { year = c.years[it] }
@@ -241,12 +243,23 @@ fun YearPage(address: String, token: String) {
                 Section("Streaks")
                 ListPanel(
                     listOf(
+                        row("Longest hot streak", c.longestHot?.let { "${it.days} days" } ?: "--",
+                            c.longestHot?.let { "${shortDay(it.from)} to ${shortDay(it.to)}" }),
                         row("Longest dry spell", c.longestDry?.let { "${it.days} days" } ?: "--",
                             c.longestDry?.let { "${shortDay(it.from)} to ${shortDay(it.to)}" }),
                         row("Longest wet spell", c.longestWet?.let { "${it.days} days" } ?: "--",
                             c.longestWet?.let { "${shortDay(it.from)} to ${shortDay(it.to)}" }),
                     ),
                 )
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { runCatching { shareYearCard(context, c) }.onFailure { shareError = it.message ?: "Couldn't share the picture." } },
+                    colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
+                ) { Text("Share this year") }
+                shareError?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Note(it, C.bad)
+                }
             }
         }
     }

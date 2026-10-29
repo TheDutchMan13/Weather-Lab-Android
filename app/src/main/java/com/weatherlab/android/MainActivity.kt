@@ -395,7 +395,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         prefs.token = t
                         address = prefs.address
                         token = prefs.token
-                        WatchSync.push(this@MainActivity, address, token)
+                        WatchSync.push(context, address, token)
                         reloadCount++
                         tab = Tab.LIVE
                     },

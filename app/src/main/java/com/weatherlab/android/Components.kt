@@ -44,10 +44,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeJoin
@@ -67,18 +69,34 @@ import androidx.compose.ui.unit.sp
 
 private fun Color.a(alpha255: Int) = copy(alpha = alpha255 / 255f)
 
-/** The card behind most content: card colour, 18 dp corners, 16 dp padding, optional 1.5 dp border. */
+/**
+ * The card behind most content (0.7.18): card colour, 20 dp corners, 16 dp padding, a soft shadow and a faint edge.
+ * [border] draws a stronger 1.5 dp edge (warnings); [brush] lays a tint over the card (the weather on Home).
+ */
 @Composable
-fun Panel(modifier: Modifier = Modifier, border: Color? = null, content: @Composable () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+fun Panel(modifier: Modifier = Modifier, border: Color? = null, brush: Brush? = null, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(S.lg)
     Box(
         modifier
             .fillMaxWidth()
+            .softShadow(shape)
             .clip(shape)
             .background(C.card)
-            .then(if (border != null) Modifier.border(BorderStroke(1.5.dp, border), shape) else Modifier)
+            .then(if (brush != null) Modifier.background(brush) else Modifier)
+            .border(BorderStroke(if (border != null) 1.5.dp else 1.dp, border ?: C.line.copy(alpha = 0.6f)), shape)
             .padding(16.dp),
     ) { content() }
+}
+
+/** A light shadow under cards: stronger on the light scheme, where it shows; barely there on navy. */
+@Composable
+internal fun Modifier.softShadow(shape: androidx.compose.ui.graphics.Shape): Modifier {
+    val light = LocalPal.current.light
+    return shadow(
+        elevation = if (light) 6.dp else 3.dp, shape = shape, clip = false,
+        ambientColor = Color.Black.copy(alpha = if (light) 0.06f else 0.3f),
+        spotColor = Color.Black.copy(alpha = if (light) 0.10f else 0.4f),
+    )
 }
 
 private const val SHOW_TILE_ACCENT = true
@@ -107,7 +125,7 @@ fun Tile(
 ) {
     // Tiles for known measures get a 4 dp coloured left edge and, when given, a 24-hour line, as on the phone app.
     val accent = if (SHOW_TILE_ACCENT) measureAccent(label) else null
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(S.md)
     val term = termForLabel(label)
     var showTerm by remember { mutableStateOf(false) }
     val content: @Composable () -> Unit = {
@@ -143,8 +161,10 @@ fun Tile(
     }
     Box(
         modifier
+            .softShadow(shape)
             .clip(shape)
             .background(C.card)
+            .border(BorderStroke(1.dp, C.line.copy(alpha = 0.6f)), shape)
             .then(if (onClick != null) Modifier.clickable(onClickLabel = "Show history", onClick = onClick) else Modifier)
             .then(
                 if (term == null) Modifier.clearAndSetSemantics { contentDescription = "$label: $value${if (sub == null) "" else ", $sub"}" }
@@ -292,7 +312,7 @@ fun LoadingCard() {
         initialValue = 0.35f, targetValue = 0.8f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse",
     )
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card).padding(16.dp)) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(S.md)).background(C.card).padding(16.dp)) {
         Column(Modifier.alpha(pulse.value), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(0.5f, 1f, 0.8f).forEach { w ->
                 Box(Modifier.fillMaxWidth(w).height(12.dp).clip(RoundedCornerShape(6.dp)).background(C.bar))

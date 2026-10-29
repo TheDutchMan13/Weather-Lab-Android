@@ -196,11 +196,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
         ),
         "History" to listOf(
-            MoreItem(MoreSub.DAYS, "One day, 7 days, 30 days or all, with charts and rain"),
-            MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
-            MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
-            MoreItem(MoreSub.PHONE_HISTORY, "Days and a 24-hour line the phone kept itself, without your PC"),
         ),
         "Air, sun and heat" to listOf(
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
@@ -218,9 +214,6 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
         "Season" to listOf(
             MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
             MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
-            MoreItem(MoreSub.YEAR, "A year in review"),
-            MoreItem(MoreSub.MONTH, "A card for any month"),
-            MoreItem(MoreSub.COMPARE, "This year against last year"),
             MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
             MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
         ),

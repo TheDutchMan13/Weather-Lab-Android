@@ -661,6 +661,15 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.18", "October 29, 2026",
+        listOf(
+            "A more modern look: cards have softer, rounder corners, a light shadow and a faint edge, and the figures on tiles are larger.",
+            "Live is now Home, to match Weather Lab on your PC. The card at the top takes a soft tint from the weather: warm by day, deep blue at night, blue when it rains. Home's tab shows the Alert badge when an alert came in during the last 24 hours, and Home lists them under Recent alerts.",
+            "New History tab in place of Alerts: Daily, Records, Rankings, Compare, Month, Year and On this phone, picked from the chips at the top. Older alerts are under More, Alert history.",
+            "Pages fade gently when you switch tabs.",
+        ),
+    ),
+    NewsEntry(
         "0.7.17", "October 29, 2026",
         listOf(
             "Keep history on this phone (Settings, History on this phone). Off by default. When on, the phone saves the readings it receives, one every 5 minutes, for 30 days, 90 days or a year.",

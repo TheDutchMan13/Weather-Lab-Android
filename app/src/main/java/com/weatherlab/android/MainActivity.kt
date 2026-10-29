@@ -29,10 +29,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -41,6 +45,8 @@ import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
@@ -78,6 +84,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -159,10 +167,10 @@ class MainActivity : ComponentActivity() {
 private val WHEN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a")
 
 private enum class Tab(val label: String, val icon: ImageVector, val selected: ImageVector) {
-    LIVE("Live", Icons.Outlined.Cloud, Icons.Filled.Cloud),
+    LIVE("Home", Icons.Outlined.Home, Icons.Filled.Home),
+    HISTORY("History", Icons.Outlined.History, Icons.Filled.History),
     FORECAST("Forecast", Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth),
     STORM("Storm", Icons.Outlined.Bolt, Icons.Filled.Bolt),
-    ALERTS("Alerts", Icons.Outlined.Notifications, Icons.Filled.Notifications),
     MORE("More", Icons.Outlined.Apps, Icons.Filled.Apps),
 }
 
@@ -186,7 +194,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var tab by remember { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }
     var sub by remember { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
     var dayKey by remember { mutableStateOf<String?>(null) }
-    val inSub = tab == Tab.MORE && sub != MoreSub.MENU
+    var historyView by remember { mutableStateOf(HistoryView.DAILY) }
+    val inSub = (tab == Tab.MORE && sub != MoreSub.MENU) || (tab == Tab.HISTORY && dayKey != null)
     val goBack: () -> Unit = {
         if (dayKey != null) {
             dayKey = null
@@ -228,7 +237,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
         }
     }
 
-    // The Alerts tab shows a badge when something was logged in the last 24 hours, like the Storm tab on the phone app.
+    // The Home tab shows a badge when an alert was logged in the last 24 hours (Home lists them under Recent alerts).
     val recentAlerts = snapshot?.alerts.orEmpty().count { System.currentTimeMillis() / 1000 - it.ts < 24 * 3600 }
 
     val wide = LocalConfiguration.current.screenWidthDp >= 720
@@ -237,12 +246,13 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             sub = MoreSub.MENU
             dayKey = null
         }
+        if (t != tab) dayKey = null
         tab = t
         if (t == Tab.LIVE) reloadCount++
     }
     val tabIcon: @Composable (Tab) -> Unit = { t ->
         val icon = if (tab == t) t.selected else t.icon
-        if (t == Tab.ALERTS && recentAlerts > 0) {
+        if (t == Tab.LIVE && recentAlerts > 0) {
             BadgedBox(badge = { Badge(containerColor = C.bad) { Text("Alert") } }) {
                 Icon(icon, contentDescription = t.label)
             }
@@ -256,7 +266,11 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
         topBar = {
             TopAppBar(
                 title = {
-                    val title = if (tab != Tab.MORE) tab.label else if (dayKey != null) "Day" else sub.label
+                    val title = when {
+                        dayKey != null -> "Day"
+                        tab == Tab.MORE -> sub.label
+                        else -> tab.label
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(R.drawable.app_logo),
@@ -313,7 +327,9 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             }
         }
         Column(Modifier.weight(1f).fillMaxSize()) {
-            when (tab) {
+          // A short fade between tabs (0.7.18).
+          Crossfade(targetState = tab, animationSpec = tween(220), label = "tab") { shown ->
+            when (shown) {
                 Tab.LIVE -> Paned(wide, { ChartsPage(address, token) }) { LivePage(
                     snapshot = snapshot, error = error, loading = loading,
                     configured = address.isNotBlank() && token.isNotBlank(),
@@ -331,7 +347,14 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 ) }
                 Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) { ForecastPage(address, token) }
                 Tab.STORM -> Paned(wide, { LightningPage(address, token) }) { StormPage(snapshot, stormOn) }
-                Tab.ALERTS -> AlertsPage(snapshot)
+                Tab.HISTORY -> HistoryTab(
+                    address, token, historyView, { historyView = it }, prefs, dayKey,
+                    onOpenDay = { dayKey = it },
+                    onOpenMore = {
+                        tab = Tab.MORE
+                        sub = it
+                    },
+                )
                 Tab.MORE -> when {
                     sub == MoreSub.MENU -> MorePage { sub = it }
                     sub == MoreSub.BRIEFING -> BriefingPage(address, token)
@@ -405,12 +428,21 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     )
                 }
             }
+          }
         }
         }
     }
 }
 // ---------------------------------------------------------------------------------------------------------------------
 // Live
+
+/** The colour the hero card leans towards for each kind of sky from skyKind. */
+internal fun skyTint(kind: String): Color = when (kind) {
+    "rain" -> Color(0xFF4F9CF7)
+    "wind" -> Color(0xFF8FD3C0)
+    "night" -> Color(0xFF5B5FD6)
+    else -> Color(0xFFF4A259)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -568,7 +600,8 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
     val gustMph = v["windgustmph"]?.let { if (it.unit.contains("km")) it.value / 1.609344 else it.value }
     val rainRate = v["rainratein"]?.value
     val kind = skyKind(rainRate, gustMph, LocalDateTime.now().hour)
-    Panel {
+    // The hero card takes a soft tint from the weather (0.7.18): warm by day, deep blue at night, blue in rain.
+    Panel(brush = Brush.linearGradient(listOf(skyTint(kind).copy(alpha = 0.32f), Color.Transparent))) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -827,7 +860,7 @@ private fun SettingsPage(
                     Column(Modifier.weight(1f)) {
                         Text("Pause refreshing in the background", style = T.body, color = C.text)
                         Text(
-                            "The Live page stops updating while the app isn't on screen and catches up when you return. " +
+                            "Home stops updating while the app isn't on screen and catches up when you return. " +
                                 "The storm countdown above has its own switch.",
                             style = T.label, color = C.muted,
                         )
@@ -848,7 +881,7 @@ private fun SettingsPage(
                     Column(Modifier.weight(1f)) {
                         Text("Keep history on this phone", style = T.body, color = C.text)
                         Text(
-                            "Saves the readings the phone receives, one every 5 minutes, so More, Saved on this phone still shows days and a 24-hour line when your PC can't be reached. Off by default.",
+                            "Saves the readings the phone receives, one every 5 minutes, so History, On this phone still shows days and a 24-hour line when your PC can't be reached. Off by default.",
                             style = T.label, color = C.muted,
                         )
                     }

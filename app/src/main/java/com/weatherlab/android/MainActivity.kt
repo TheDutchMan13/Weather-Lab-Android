@@ -509,18 +509,6 @@ private fun rangeText(t: LiveTile, line: List<Double>?): String? {
     return "low ${f(line.min())} \u00B7 high ${f(line.max())}"
 }
 
-private val COMPASS = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
-
-/** The dew point in plain words, with the same limits as the Windows app. [fahrenheit] is the dew point in °F. */
-private fun dewWord(fahrenheit: Double): String = when {
-    fahrenheit < 55 -> "dry and comfortable"
-    fahrenheit < 60 -> "comfortable"
-    fahrenheit < 65 -> "a little humid"
-    fahrenheit < 70 -> "muggy"
-    else -> "oppressive"
-}
-
-private fun compass(deg: Double): String = COMPASS[(((deg % 360 + 360) % 360 + 11.25) / 22.5).toInt() % 16]
 
 /** "6:47 PM" in this phone's time zone from an ISO time such as 2026-10-24T01:47:00+00:00, or null when it can't be read. */
 private fun clockOf(iso: String): String? = try {
@@ -542,7 +530,7 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
         out += LiveTile("Humidity", reading("humidity", m), v["humidityin"]?.let { "Indoor ${Math.round(it.value)}%" }, "humidity", "humidity")
     }
     v["windspeedmph"]?.let { m ->
-        out += LiveTile("Wind", reading("windspeedmph", m), v["winddir"]?.let { compass(it.value) }, "windspeedmph", "windspeedmph")
+        out += LiveTile("Wind", reading("windspeedmph", m), s.current.words["wind_direction"], "windspeedmph", "windspeedmph")
     }
     v["windgustmph"]?.let { m ->
         out += LiveTile("Gust", reading("windgustmph", m), peak("windgustmph", 1)?.let { "Peak today $it" }, "windgustmph", "windgustmph")
@@ -690,14 +678,14 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
     // Dew point at the bottom, with its last 24 hours. Tap it for its history.
     v["dewpointf"]?.let { d ->
         val line = s.tiles?.series?.get("dewpointf")
-        val f = if (d.unit.contains("C")) d.value * 9 / 5 + 32 else d.value
         Spacer(Modifier.height(16.dp))
         val card = LiveTile("Dew point", reading("dewpointf", d), null, "dewpointf", "dewpointf")
         Tile(
             card.label, card.value, Modifier.fillMaxWidth(), trend = line, range = rangeText(card, line),
             onClick = { historyOf = Pair("dewpointf", "Dew point") },
         )
-        Text("Dew point: ${dewWord(f)}. Tap the card for its history.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 6.dp))
+        val dewWord = s.current.words["dew_point"]
+        Text(if (dewWord != null) "Dew point: $dewWord. Tap the card for its history." else "Tap the card for its history.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 6.dp))
     }
 }
 

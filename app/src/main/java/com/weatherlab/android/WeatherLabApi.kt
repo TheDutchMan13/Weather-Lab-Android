@@ -7,7 +7,8 @@ import java.net.URL
 /** One number from Weather Lab, already in the units chosen on the PC, with its unit label. */
 data class Measure(val value: Double, val unit: String)
 
-data class Current(val ageSeconds: Int?, val values: Map<String, Measure>, val metric: Boolean)
+/** [words] is the plain-language wording Weather Lab writes for dew point, wind direction and UV (empty from versions before 0.37.36). */
+data class Current(val ageSeconds: Int?, val values: Map<String, Measure>, val metric: Boolean, val words: Map<String, String> = emptyMap())
 data class Today(val date: String, val high: Measure?, val low: Measure?, val rain: Measure?, val readings: Int)
 data class Status(val station: String, val appVersion: String, val ageSeconds: Int?)
 data class Alert(val ts: Long, val text: String)
@@ -249,7 +250,9 @@ class WeatherLabApi(address: String, private val token: String, private val save
             val item = values.getJSONObject(key)
             map[key] = Measure(item.getDouble("value"), item.optString("unit"))
         }
-        return Current(reading.optInt("age_seconds"), map, metric)
+        val words = LinkedHashMap<String, String>()
+        reading.optJSONObject("words")?.let { w -> w.keys().forEach { k -> w.optString(k).takeIf { it.isNotBlank() }?.let { words[k] = it } } }
+        return Current(reading.optInt("age_seconds"), map, metric, words)
     }
 
     fun today(): Today {

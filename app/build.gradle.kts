@@ -12,8 +12,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "0.7.18"
+        versionCode = 28
+        versionName = "0.7.19"
     }
 
     // Release signing. The key never lives in the repo: the release workflow supplies it through these settings.
@@ -56,6 +56,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("androidx.glance:glance-appwidget:1.1.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

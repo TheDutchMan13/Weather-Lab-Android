@@ -661,6 +661,14 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.19", "October 29, 2026",
+        listOf(
+            "New Wear OS watch app, installed separately from the phone app: the temperature, today's high and low, rain chance and the morning briefing on your wrist.",
+            "A tile you can swipe to, and a watch-face complication that shows the temperature with today's high.",
+            "The watch gets your address and token from this app by itself, so there is nothing to type on the watch. It needs Wi-Fi that can reach your PC.",
+        ),
+    ),
+    NewsEntry(
         "0.7.18", "October 29, 2026",
         listOf(
             "A more modern look: cards have softer, rounder corners, a light shadow and a faint edge, and the figures on tiles are larger.",

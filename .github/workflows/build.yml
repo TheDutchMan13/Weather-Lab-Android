@@ -44,7 +44,7 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build the debug APK
-        run: gradle :app:assembleDebug --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: gradle :app:assembleDebug :wear:assembleDebug --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
 
       # If the build fails, show the compiler's complaints as short notes on the run, so they are easy to find.
       - name: Show build errors
@@ -59,4 +59,11 @@ jobs:
         with:
           name: WeatherLabAndroid-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Keep the watch APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeatherLabWear-debug
+          path: wear/build/outputs/apk/debug/*.apk
           if-no-files-found: error

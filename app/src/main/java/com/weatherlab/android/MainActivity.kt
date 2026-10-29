@@ -114,6 +114,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         prefs = Prefs(this)
+        WatchSync.push(this, prefs.address, prefs.token)
         // With App lock on, a fresh start is locked and the app's picture is hidden in the recent apps list.
         if (prefs.lockAfter >= 0) {
             locked = true
@@ -394,6 +395,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         prefs.token = t
                         address = prefs.address
                         token = prefs.token
+                        WatchSync.push(this@MainActivity, address, token)
                         reloadCount++
                         tab = Tab.LIVE
                     },

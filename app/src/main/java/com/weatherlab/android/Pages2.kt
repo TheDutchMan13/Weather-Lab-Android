@@ -661,6 +661,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.17", "October 29, 2026",
+        listOf(
+            "Keep history on this phone (Settings, History on this phone). Off by default. When on, the phone saves the readings it receives, one every 5 minutes, for 30 days, 90 days or a year.",
+            "More, Saved on this phone shows the days the phone kept (high, low, rain, gust) and a 24-hour temperature line, and works when your PC can't be reached. Clear saved history empties it.",
+        ),
+    ),
+    NewsEntry(
         "0.7.16", "October 26, 2026",
         listOf(
             "Fixed the Live page: the current-conditions card (temperature, sky, feels like, today's high and low) is back at the top under the briefing. It had been drawn underneath the tiles since 0.7.14.",

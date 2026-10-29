@@ -178,6 +178,8 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var reloadCount by remember { mutableIntStateOf(0) }
     var stormOn by remember { mutableStateOf(prefs.stormNotify) }
     var pauseBg by remember { mutableStateOf(prefs.pauseInBackground) }
+    var keepHistory by remember { mutableStateOf(prefs.offlineHistory) }
+    var historyDays by remember { mutableIntStateOf(prefs.historyDays) }
     var lockAfter by remember { mutableIntStateOf(prefs.lockAfter) }
     val context = LocalContext.current
     val needsSetup = prefs.address.isBlank() || prefs.token.isBlank()
@@ -203,7 +205,10 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
             try {
                 snapshot = withContext(Dispatchers.IO) {
                     val api = WeatherLabApi(address, token)
-                    api.snapshot().also { SnapshotCache.save(context, api.recorded) }
+                    api.snapshot().also {
+                        SnapshotCache.save(context, api.recorded)
+                        if (prefs.offlineHistory) PhoneHistory.record(context, it, prefs.historyDays)
+                    }
                 }
                 fetchedAt = System.currentTimeMillis()
                 error = null
@@ -358,6 +363,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.RADAR -> RadarPage(address, token)
                     sub == MoreSub.AIR -> AirPage(address, token)
                     sub == MoreSub.PUSH -> PushPage(address, token)
+                    sub == MoreSub.PHONE_HISTORY -> PhoneHistoryPage(prefs)
                     else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,
                     onSave = { a, t ->
@@ -380,6 +386,16 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     onPauseBg = { on ->
                         pauseBg = on
                         prefs.pauseInBackground = on
+                    },
+                    keepHistory = keepHistory,
+                    onKeepHistory = { on ->
+                        keepHistory = on
+                        prefs.offlineHistory = on
+                    },
+                    historyDays = historyDays,
+                    onHistoryDays = { days ->
+                        historyDays = days
+                        prefs.historyDays = days
                     },
                     lockAfter = lockAfter,
                     onLockAfter = { seconds ->
@@ -701,6 +717,10 @@ private fun SettingsPage(
     onStorm: (Boolean) -> Unit,
     pauseBg: Boolean,
     onPauseBg: (Boolean) -> Unit,
+    keepHistory: Boolean,
+    onKeepHistory: (Boolean) -> Unit,
+    historyDays: Int,
+    onHistoryDays: (Int) -> Unit,
     lockAfter: Int,
     onLockAfter: (Int) -> Unit,
 ) {
@@ -817,6 +837,46 @@ private fun SettingsPage(
                         checked = pauseBg, onCheckedChange = onPauseBg,
                         colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
                     )
+                }
+            }
+        }
+
+        Section("History on this phone")
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Keep history on this phone", style = T.body, color = C.text)
+                        Text(
+                            "Saves the readings the phone receives, one every 5 minutes, so More, Saved on this phone still shows days and a 24-hour line when your PC can't be reached. Off by default.",
+                            style = T.label, color = C.muted,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = keepHistory, onCheckedChange = onKeepHistory,
+                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                    )
+                }
+                if (keepHistory) {
+                    Text("Keep for", style = T.body, color = C.text)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(30 to "30 days", 90 to "90 days", 365 to "1 year").forEach { (days, name) ->
+                            FilterChip(
+                                selected = historyDays == days,
+                                onClick = { onHistoryDays(days) },
+                                label = { Text(name, color = C.text) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = C.card,
+                                    selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true, selected = historyDays == days,
+                                    borderColor = C.line, selectedBorderColor = C.cyan,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         }

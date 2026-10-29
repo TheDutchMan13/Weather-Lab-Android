@@ -46,4 +46,14 @@ class Prefs(context: Context) {
     var pauseInBackground: Boolean
         get() = prefs.getBoolean("pause_background", false)
         set(value) = prefs.edit().putBoolean("pause_background", value).apply()
+
+    /** Keep a history of the readings on this phone (0.7.17). Off until turned on in Settings. */
+    var offlineHistory: Boolean
+        get() = prefs.getBoolean("offline_history", false)
+        set(value) = prefs.edit().putBoolean("offline_history", value).apply()
+
+    /** How many days of saved readings to keep: 30, 90 or 365. */
+    var historyDays: Int
+        get() = prefs.getInt("history_days", 90)
+        set(value) = prefs.edit().putInt("history_days", value).apply()
 }

@@ -183,7 +183,7 @@ enum class MoreSub(val label: String) {
     ON_THIS_DAY("On this day"), COMPARE("Compare"), MONTH("Monthly card"), YEAR("My year"),
     MILESTONES("Season milestones"), ANOMALIES("Unusual days"), ALERT_HISTORY("Alert history"),
     FC_ACCURACY("Forecast accuracy"), EXPORT("Export"), REWIND("Replay"),
-    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String)
@@ -200,6 +200,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
             MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
+            MoreItem(MoreSub.PHONE_HISTORY, "Days and a 24-hour line the phone kept itself, without your PC"),
         ),
         "Air, sun and heat" to listOf(
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),

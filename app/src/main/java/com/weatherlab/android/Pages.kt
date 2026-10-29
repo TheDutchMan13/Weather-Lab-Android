@@ -183,7 +183,7 @@ enum class MoreSub(val label: String) {
     ON_THIS_DAY("On this day"), COMPARE("Compare"), MONTH("Monthly card"), YEAR("My year"),
     MILESTONES("Season milestones"), ANOMALIES("Unusual days"), ALERT_HISTORY("Alert history"),
     FC_ACCURACY("Forecast accuracy"), EXPORT("Export"), REWIND("Replay"),
-    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String)
@@ -196,9 +196,6 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
         ),
         "History" to listOf(
-            MoreItem(MoreSub.DAYS, "One day, 7 days, 30 days or all, with charts and rain"),
-            MoreItem(MoreSub.RECORDS, "Records, extreme events and how the days spread out"),
-            MoreItem(MoreSub.RANKINGS, "Hottest, coolest, wettest and more"),
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
         ),
         "Air, sun and heat" to listOf(
@@ -217,9 +214,6 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
         "Season" to listOf(
             MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
             MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
-            MoreItem(MoreSub.YEAR, "A year in review"),
-            MoreItem(MoreSub.MONTH, "A card for any month"),
-            MoreItem(MoreSub.COMPARE, "This year against last year"),
             MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
             MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
         ),

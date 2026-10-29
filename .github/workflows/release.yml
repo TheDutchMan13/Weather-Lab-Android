@@ -70,7 +70,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle :app:assembleRelease --no-daemon
+        run: gradle :app:assembleRelease :wear:assembleRelease --no-daemon
 
       - name: Publish the release
         env:
@@ -78,5 +78,7 @@ jobs:
         run: |
           APK="$(ls app/build/outputs/apk/release/*.apk | head -1)"
           cp "$APK" WeatherLabAndroid-${GITHUB_REF_NAME}.apk
-          gh release create "$GITHUB_REF_NAME" "WeatherLabAndroid-${GITHUB_REF_NAME}.apk" \
+          WEAR="$(ls wear/build/outputs/apk/release/*.apk | head -1)"
+          cp "$WEAR" WeatherLabWear-${GITHUB_REF_NAME}.apk
+          gh release create "$GITHUB_REF_NAME" "WeatherLabAndroid-${GITHUB_REF_NAME}.apk" "WeatherLabWear-${GITHUB_REF_NAME}.apk" \
             --title "Weather Lab for Android $GITHUB_REF_NAME" --generate-notes

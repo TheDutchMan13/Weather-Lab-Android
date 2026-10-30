@@ -480,13 +480,15 @@ private fun LivePage(
                 snapshot == null && error != null -> ErrorBox(error, onRefresh, title = "Couldn't reach Weather Lab")
                 snapshot == null -> LoadingCard()
                 else -> {
-                    if (error != null && offlineSince != null) OfflineBanner(snapshot, offlineSince, onRefresh)
-                    else if (error != null) Note(error, C.warn)
                     // A Column, not a Box: a Box stacks its children on top of each other, which hid the current-conditions card.
                     Column(Modifier.fillMaxWidth().alpha(if (offlineSince != null && error != null) 0.85f else 1f)) {
                         // Right now first, then the briefing, as on the PC (0.7.23). The PC's Home layout can turn the
                         // briefing off; an older Weather Lab (no layout) keeps it on.
-                        Dashboard(snapshot, address, token, showBriefing = snapshot.home?.briefing != false, onOpenBriefing = onOpenBriefing)
+                        Dashboard(
+                            snapshot, address, token, showBriefing = snapshot.home?.briefing != false, onOpenBriefing = onOpenBriefing,
+                            // Offline, errors, lightning and old data share one strip under the hero (0.7.24).
+                            notices = { NoticesStrip(snapshot, error, offlineSince, onRefresh) },
+                        )
                     }
                 }
             }
@@ -576,23 +578,15 @@ private fun orderedTiles(tiles: List<LiveTile>, home: HomeLayout?): List<LiveTil
 }
 
 @Composable
-private fun Dashboard(s: Snapshot, address: String, token: String, showBriefing: Boolean = true, onOpenBriefing: () -> Unit = {}) {
+private fun Dashboard(
+    s: Snapshot, address: String, token: String, showBriefing: Boolean = true, onOpenBriefing: () -> Unit = {},
+    notices: @Composable () -> Unit = {},
+) {
     var historyOf by remember { mutableStateOf<Pair<String, String>?>(null) }
     historyOf?.let { (key, title) -> MeasureHistorySheet(address, token, key, title) { historyOf = null } }
     val v = s.current.values
     val age = s.current.ageSeconds ?: s.status.ageSeconds
     val ageMin = age?.let { it / 60 }
-
-    // Storm banner above everything else, as on the phone app.
-    s.storm?.let { st ->
-        if (st.trend == "approaching" || st.trend == "overhead") {
-            val away = st.last?.let { "${one(it.distance.value)} ${it.distance.unit}" }
-            val text = if (st.trend == "overhead") "Lightning overhead." else "Lightning approaching."
-            Note(if (away == null) text else "$text Last strike $away away.", C.bad)
-        }
-    }
-
-    if (age != null && age > 600) Note("Station data is ${(age / 60.0).let { Math.round(it) }} minutes old.", C.warn)
 
     // Hero: big temperature beside the animated sky icon, then the lines under it.
     val temp = v["tempf"]
@@ -627,6 +621,7 @@ private fun Dashboard(s: Snapshot, address: String, token: String, showBriefing:
         }
     }
     Spacer(Modifier.height(10.dp))
+    notices()
     if (showBriefing) BriefingCard(address, token, onOpenBriefing)
 
     Section("Right now", updatedMinutes = ageMin)

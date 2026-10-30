@@ -661,6 +661,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.21", "October 29, 2026",
+        listOf(
+            "A new About page under More, in the Settings group: how the app keeps your data private, its version (and the Weather Lab version on your PC), a link to this list of changes, the source code on GitHub and the licence.",
+        ),
+    ),
+    NewsEntry(
         "0.7.20", "October 29, 2026",
         listOf(
             "The words for dew point (dry, muggy...) and wind direction now come from Weather Lab, so the app and the PC always say the same thing. This needs Weather Lab 0.37.36 or newer on your PC; with an older version the dew point line shows no word.",

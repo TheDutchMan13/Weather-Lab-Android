@@ -387,6 +387,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.RADAR -> RadarPage(address, token)
                     sub == MoreSub.AIR -> AirPage(address, token)
                     sub == MoreSub.PUSH -> PushPage(address, token)
+                    sub == MoreSub.ABOUT -> AboutPage(snapshot?.status?.appVersion.orEmpty()) { sub = MoreSub.WHATS_NEW }
                     sub == MoreSub.PHONE_HISTORY -> PhoneHistoryPage(prefs)
                     else -> SettingsPage(
                     prefs = prefs, address = address, token = token, scheme = scheme, snapshot = snapshot,

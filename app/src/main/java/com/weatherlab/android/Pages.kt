@@ -190,45 +190,40 @@ private data class MoreItem(val sub: MoreSub, val about: String)
 
 @Composable
 fun MorePage(onOpen: (MoreSub) -> Unit) {
+    // Five areas, the same as the Weather Lab sidebar on the PC (0.7.22).
     val groups = listOf(
         "Now" to listOf(
             MoreItem(MoreSub.BRIEFING, "Today at a glance, against yesterday and last year"),
             MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
+            MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
         ),
         "History" to listOf(
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
-        ),
-        "Air, sun and heat" to listOf(
-            MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
-            MoreItem(MoreSub.WIND, "Where the wind comes from"),
-            MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
-            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
-            MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
-        ),
-        "Forecast and storms" to listOf(
-            MoreItem(MoreSub.FC_ACCURACY, "How close the forecast highs were"),
-            MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
-            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
-            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
-        ),
-        "Season" to listOf(
             MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
             MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
             MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
             MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
-        ),
-        "Tools" to listOf(
             MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
             MoreItem(MoreSub.REWIND, "Replay any past day"),
-            MoreItem(MoreSub.EXPORT, "Send your daily summaries as a CSV"),
+            MoreItem(MoreSub.FC_ACCURACY, "How close the forecast highs were"),
         ),
-        "Health" to listOf(
+        "Weather" to listOf(
+            MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
+            MoreItem(MoreSub.WIND, "Where the wind comes from"),
+            MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
+            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
+        ),
+        "Storms" to listOf(
+            MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
+            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
+            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
+        ),
+        "Station" to listOf(
             MoreItem(MoreSub.STATION, "Data health, sensors, batteries"),
-        ),
-        "Settings" to listOf(
-            MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
-            MoreItem(MoreSub.WHATS_NEW, "Everything added"),
             MoreItem(MoreSub.SETTINGS, "Connection, notifications, look"),
+            MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
+            MoreItem(MoreSub.EXPORT, "Send your daily summaries as a CSV"),
+            MoreItem(MoreSub.WHATS_NEW, "Everything added"),
             MoreItem(MoreSub.ABOUT, "Version, privacy, source code, licence"),
         ),
     )

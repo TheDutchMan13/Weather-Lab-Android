@@ -661,6 +661,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.22", "October 30, 2026",
+        listOf(
+            "The More menu has five groups, the same as the Weather Lab sidebar on your PC: Now, History, Weather, Storms and Station. Every page is still there.",
+        ),
+    ),
+    NewsEntry(
         "0.7.21", "October 29, 2026",
         listOf(
             "A new About page under More, in the Settings group: how the app keeps your data private, its version (and the Weather Lab version on your PC), a link to this list of changes, the source code on GitHub and the licence.",

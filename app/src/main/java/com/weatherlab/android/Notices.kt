@@ -22,13 +22,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** One line in the notices strip on Live. urgent: opens the strip on its own, as a Severe warning does on the PC. */
-internal data class LiveNotice(val text: String, val color: Color, val urgent: Boolean = false)
+internal data class LiveNotice(val text: String, val bad: Boolean, val urgent: Boolean = false)
 
 /**
  * What Live has to say besides the readings (0.7.24): a lightning storm close by, data that is more than 10 minutes
@@ -40,14 +39,14 @@ internal fun liveNotices(s: Snapshot, error: String?, offline: Boolean): List<Li
         if (st.trend == "approaching" || st.trend == "overhead") {
             val away = st.last?.let { "${"%.1f".format(it.distance.value)} ${it.distance.unit}" }
             val text = if (st.trend == "overhead") "Lightning overhead." else "Lightning approaching."
-            out += LiveNotice(if (away == null) text else "$text Last strike $away away.", C.bad, urgent = true)
+            out += LiveNotice(if (away == null) text else "$text Last strike $away away.", bad = true, urgent = true)
         }
     }
     val age = s.current.ageSeconds ?: s.status.ageSeconds
     if (!offline && age != null && age > 600) {
-        out += LiveNotice("Station data is ${Math.round(age / 60.0)} minutes old.", C.warn)
+        out += LiveNotice("Station data is ${Math.round(age / 60.0)} minutes old.", bad = false)
     }
-    if (error != null && !offline) out += LiveNotice(error, C.warn)
+    if (error != null && !offline) out += LiveNotice(error, bad = false)
     return out
 }
 
@@ -68,7 +67,7 @@ internal fun NoticesStrip(s: Snapshot, error: String?, offlineSince: Long?, onRe
     val urgent = offline || notes.any { it.urgent }
     var open by rememberSaveable(urgent) { mutableStateOf(urgent) }
     val tint = when {
-        notes.any { it.color == C.bad } -> C.bad
+        notes.any { it.bad } -> C.bad
         offline || notes.isNotEmpty() -> C.warn
         else -> C.muted
     }
@@ -91,7 +90,7 @@ internal fun NoticesStrip(s: Snapshot, error: String?, offlineSince: Long?, onRe
             if (open) {
                 Spacer(Modifier.height(10.dp))
                 if (offline) OfflineBanner(s, offlineSince!!, onRetry)
-                notes.forEach { Note(it.text, it.color) }
+                notes.forEach { Note(it.text, if (it.bad) C.bad else C.warn) }
             }
         }
     }

@@ -52,6 +52,10 @@ up somewhere safe (not in this folder).
 4. Raise `versionCode` and `versionName` in `app/build.gradle.kts`, push, then tag it:
    `git tag v0.3.0` and `git push origin v0.3.0`. GitHub builds the signed APK and posts it under Releases.
 
+## AI disclaimer
+
+Parts of this project were written with help from an AI assistant (Claude, made by Anthropic). The code and documentation may contain mistakes or behave in unexpected ways. Review and test it before relying on it, especially for anything important.
+
 ## License
 
 GNU GPL v3.0 or later. Copyright (C) 2026 Hans De Kryger. See `LICENSE`.

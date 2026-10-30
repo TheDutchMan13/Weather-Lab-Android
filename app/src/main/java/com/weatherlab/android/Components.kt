@@ -193,6 +193,45 @@ fun TileGrid(items: List<@Composable (Modifier) -> Unit>, perRow: Int = 2) {
     }
 }
 
+/** One tile for TileRows (0.7.23): a wide tile has a row to itself, as on the PC's Home layout. */
+class GridItem(val wide: Boolean, val content: @Composable (Modifier) -> Unit)
+
+/** Tiles in rows of perRow, keeping their order; a wide tile takes the whole row. */
+@Composable
+fun TileRows(items: List<GridItem>, perRow: Int = 2) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        gridRows(items.map { it.wide }, perRow).forEach { row ->
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { i -> items[i].content(Modifier.weight(1f).fillMaxHeight()) }
+                if (!items[row.first()].wide) repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** The rows as lists of indexes: each wide item alone, the others in groups of up to perRow, order kept. */
+internal fun gridRows(wide: List<Boolean>, perRow: Int): List<List<Int>> {
+    val out = ArrayList<List<Int>>()
+    var row = ArrayList<Int>()
+    wide.forEachIndexed { i, isWide ->
+        if (isWide) {
+            if (row.isNotEmpty()) {
+                out.add(row)
+                row = ArrayList()
+            }
+            out.add(listOf(i))
+        } else {
+            row.add(i)
+            if (row.size == perRow) {
+                out.add(row)
+                row = ArrayList()
+            }
+        }
+    }
+    if (row.isNotEmpty()) out.add(row)
+    return out
+}
+
 /** A heading above a group of cards: 22 dp above, 8 dp below, optional "updated 3 min ago" chip. */
 @Composable
 fun Section(text: String, updatedMinutes: Int? = null) {

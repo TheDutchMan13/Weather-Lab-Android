@@ -34,7 +34,14 @@ data class Snapshot(
     val storm: Storm? = null,
     val tiles: Tiles? = null,
     val airport: Airport? = null,
+    val home: HomeLayout? = null,
 )
+
+/**
+ * How Home is laid out on the PC (Weather Lab 0.37.46 and up), so the Live tab can follow it: whether the briefing
+ * shows, the reading cards in their order and which are wide. Null with an older Weather Lab, which keeps the old order.
+ */
+data class HomeLayout(val briefing: Boolean, val cards: List<String>, val wide: Set<String>)
 
 /**
  * What the Live tiles show besides the latest reading. From Weather Lab 0.37.8 and up; an older Weather Lab leaves
@@ -680,6 +687,13 @@ class WeatherLabApi(address: String, private val token: String, private val save
         )
     }
 
+    fun home(): HomeLayout {
+        val j = get("/api/v1/home")
+        fun strings(key: String): List<String> =
+            j.optJSONArray(key)?.let { a -> (0 until a.length()).mapNotNull { i -> a.optString(i).ifBlank { null } } } ?: emptyList()
+        return HomeLayout(j.optBoolean("briefing", true), strings("cards"), strings("wide").toSet())
+    }
+
     fun pushInfo(): PushInfo {
         val j = get("/api/v1/push")
         return PushInfo(j.optString("server"), j.optString("topic"))
@@ -695,14 +709,14 @@ class WeatherLabApi(address: String, private val token: String, private val save
     fun snapshot(): Snapshot = Snapshot(
         status(), current(), today(), alerts(),
         history = optional { history() }, week = optional { week() }, storm = optional { storm() },
-        tiles = optional { tiles() }, airport = optional { airport() },
+        tiles = optional { tiles() }, airport = optional { airport() }, home = optional { home() },
     )
 
     companion object {
         /** The requests snapshot() makes; their answers are what the phone keeps for offline use. */
         private val SAVED_PATHS = setOf(
             "/api/v1/status", "/api/v1/current", "/api/v1/today", "/api/v1/alerts", "/api/v1/history", "/api/v1/week",
-            "/api/v1/storm", "/api/v1/tiles", "/api/v1/airport",
+            "/api/v1/storm", "/api/v1/tiles", "/api/v1/airport", "/api/v1/home",
         )
 
         /** Accepts "192.168.1.50:8600", "http://192.168.1.50:8600" or a bare address, and returns "http://host:port". */

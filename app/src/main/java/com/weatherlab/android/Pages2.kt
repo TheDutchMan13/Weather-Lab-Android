@@ -661,6 +661,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.23", "October 30, 2026",
+        listOf(
+            "Live follows the Home layout on your PC: the reading right now comes first, then today's briefing (if you show it on the PC), and the tiles come in the order you set there. A card set to Wide on the PC takes the whole row here too. Tiles the PC doesn't list follow in their usual order.",
+            "This needs Weather Lab 0.37.46 or newer on your PC. With an older version the tiles keep their usual order and the briefing stays on.",
+        ),
+    ),
+    NewsEntry(
         "0.7.22", "October 30, 2026",
         listOf(
             "The More menu has five groups, the same as the Weather Lab sidebar on your PC: Now, History, Weather, Storms and Station. Every page is still there.",

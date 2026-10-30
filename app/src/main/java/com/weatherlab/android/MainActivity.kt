@@ -482,10 +482,11 @@ private fun LivePage(
                 else -> {
                     if (error != null && offlineSince != null) OfflineBanner(snapshot, offlineSince, onRefresh)
                     else if (error != null) Note(error, C.warn)
-                    BriefingCard(address, token, onOpenBriefing)
                     // A Column, not a Box: a Box stacks its children on top of each other, which hid the current-conditions card.
                     Column(Modifier.fillMaxWidth().alpha(if (offlineSince != null && error != null) 0.85f else 1f)) {
-                        Dashboard(snapshot, address, token)
+                        // Right now first, then the briefing, as on the PC (0.7.23). The PC's Home layout can turn the
+                        // briefing off; an older Weather Lab (no layout) keeps it on.
+                        Dashboard(snapshot, address, token, showBriefing = snapshot.home?.briefing != false, onOpenBriefing = onOpenBriefing)
                     }
                 }
             }
@@ -567,8 +568,15 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
     return out
 }
 
+/** The tiles in the PC's Home layout order (0.7.23): the cards it lists first, in its order, then the rest as before. */
+private fun orderedTiles(tiles: List<LiveTile>, home: HomeLayout?): List<LiveTile> {
+    if (home == null || home.cards.isEmpty()) return tiles
+    val rank = home.cards.withIndex().associate { (i, k) -> k to i }
+    return tiles.sortedBy { t -> t.series?.let { rank[it] } ?: Int.MAX_VALUE }
+}
+
 @Composable
-private fun Dashboard(s: Snapshot, address: String, token: String) {
+private fun Dashboard(s: Snapshot, address: String, token: String, showBriefing: Boolean = true, onOpenBriefing: () -> Unit = {}) {
     var historyOf by remember { mutableStateOf<Pair<String, String>?>(null) }
     historyOf?.let { (key, title) -> MeasureHistorySheet(address, token, key, title) { historyOf = null } }
     val v = s.current.values
@@ -619,6 +627,7 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
         }
     }
     Spacer(Modifier.height(10.dp))
+    if (showBriefing) BriefingCard(address, token, onOpenBriefing)
 
     Section("Right now", updatedMinutes = ageMin)
     val dayAlerts = s.alerts.count { System.currentTimeMillis() / 1000 - it.ts < 24 * 3600 }
@@ -627,8 +636,11 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
         fontSize = 14.sp, fontWeight = FontWeight.W700, color = C.text,
     )
     Spacer(Modifier.height(10.dp))
-    TileGrid(
-        liveTiles(s).map { t ->
+    // The PC's Home layout decides the order and which tiles are wide (0.7.23); tiles it doesn't list follow in
+    // this app's own order.
+    val home = s.home
+    TileRows(
+        orderedTiles(liveTiles(s), home).map { t ->
             val line = t.series?.let { k -> s.tiles?.series?.get(k) ?: emptyList() }
             val item: @Composable (Modifier) -> Unit = { mod ->
                 Tile(
@@ -636,7 +648,7 @@ private fun Dashboard(s: Snapshot, address: String, token: String) {
                     onClick = t.history?.let { k -> { historyOf = Pair(k, t.label) } },
                 )
             }
-            item
+            GridItem(wide = home != null && t.series != null && t.series in home.wide, content = item)
         },
     )
 

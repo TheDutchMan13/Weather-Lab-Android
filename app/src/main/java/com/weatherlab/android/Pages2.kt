@@ -661,6 +661,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.24", "October 30, 2026",
+        listOf(
+            "Live has one notices strip under the reading right now, like Home on your PC. It says how many notices there are (lightning close by, old station data, or trouble reaching your PC) and opens to show them. It opens by itself when lightning is close or your PC can't be reached, and is hidden when there is nothing to say.",
+        ),
+    ),
+    NewsEntry(
         "0.7.23", "October 30, 2026",
         listOf(
             "Live follows the Home layout on your PC: the reading right now comes first, then today's briefing (if you show it on the PC), and the tiles come in the order you set there. A card set to Wide on the PC takes the whole row here too. Tiles the PC doesn't list follow in their usual order.",

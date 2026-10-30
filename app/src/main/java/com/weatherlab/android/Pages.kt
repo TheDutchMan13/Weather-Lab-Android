@@ -183,7 +183,7 @@ enum class MoreSub(val label: String) {
     ON_THIS_DAY("On this day"), COMPARE("Compare"), MONTH("Monthly card"), YEAR("My year"),
     MILESTONES("Season milestones"), ANOMALIES("Unusual days"), ALERT_HISTORY("Alert history"),
     FC_ACCURACY("Forecast accuracy"), EXPORT("Export"), REWIND("Replay"),
-    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"), ABOUT("About"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String)
@@ -229,6 +229,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
             MoreItem(MoreSub.WHATS_NEW, "Everything added"),
             MoreItem(MoreSub.SETTINGS, "Connection, notifications, look"),
+            MoreItem(MoreSub.ABOUT, "Version, privacy, source code, licence"),
         ),
     )
     PageColumn {

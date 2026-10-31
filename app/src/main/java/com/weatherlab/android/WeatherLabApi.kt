@@ -41,7 +41,8 @@ data class Snapshot(
  * How Home is laid out on the PC (Weather Lab 0.37.46 and up), so the Live tab can follow it: whether the briefing
  * shows, the reading cards in their order and which are wide. Null with an older Weather Lab, which keeps the old order.
  */
-data class HomeLayout(val briefing: Boolean, val cards: List<String>, val wide: Set<String>)
+/** hero: "gradient" or "plain", the right-now panel style picked in the PC's Home layout (0.7.25). */
+data class HomeLayout(val briefing: Boolean, val cards: List<String>, val wide: Set<String>, val hero: String = "gradient")
 
 /**
  * What the Live tiles show besides the latest reading. From Weather Lab 0.37.8 and up; an older Weather Lab leaves
@@ -691,7 +692,7 @@ class WeatherLabApi(address: String, private val token: String, private val save
         val j = get("/api/v1/home")
         fun strings(key: String): List<String> =
             j.optJSONArray(key)?.let { a -> (0 until a.length()).mapNotNull { i -> a.optString(i).ifBlank { null } } } ?: emptyList()
-        return HomeLayout(j.optBoolean("briefing", true), strings("cards"), strings("wide").toSet())
+        return HomeLayout(j.optBoolean("briefing", true), strings("cards"), strings("wide").toSet(), j.optString("hero", "gradient"))
     }
 
     fun pushInfo(): PushInfo {

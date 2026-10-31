@@ -13,8 +13,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 30
         targetSdk = 35
-        versionCode = 33
-        versionName = "0.7.24"
+        versionCode = 34
+        versionName = "0.7.25"
     }
 
     // Same signing as the phone app when the release secrets are present (the phone and watch app must be signed

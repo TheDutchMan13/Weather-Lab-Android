@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">Current temperature, high and low from Weather Lab</string>
+    <string name="widget_description">Temperature, high and low, rain today and lightning or old-data notices from Weather Lab</string>
 </resources>

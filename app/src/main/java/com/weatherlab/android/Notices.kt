@@ -37,9 +37,11 @@ internal fun liveNotices(s: Snapshot, error: String?, offline: Boolean): List<Li
     val out = mutableListOf<LiveNotice>()
     s.storm?.let { st ->
         if (st.trend == "approaching" || st.trend == "overhead") {
-            val away = st.last?.let { "${"%.1f".format(it.distance.value)} ${it.distance.unit}" }
+            val last = st.last
             val text = if (st.trend == "overhead") "Lightning overhead." else "Lightning approaching."
-            out += LiveNotice(if (away == null) text else "$text Last strike $away away.", bad = true, urgent = true)
+            // How long ago, as on the PC's notices (0.7.25).
+            val detail = last?.let { " Last strike ${"%.1f".format(it.distance.value)} ${it.distance.unit} away, ${noticeAgo(it.ageSeconds)}." }
+            out += LiveNotice(text + (detail ?: ""), bad = true, urgent = true)
         }
     }
     val age = s.current.ageSeconds ?: s.status.ageSeconds
@@ -48,6 +50,16 @@ internal fun liveNotices(s: Snapshot, error: String?, offline: Boolean): List<Li
     }
     if (error != null && !offline) out += LiveNotice(error, bad = false)
     return out
+}
+
+/** "just now", "12 min ago", "2 h 5 min ago", as on the PC's notices (0.7.25). */
+internal fun noticeAgo(seconds: Long): String {
+    val minutes = (seconds.coerceAtLeast(0) / 60).toInt()
+    if (minutes < 1) return "just now"
+    if (minutes < 60) return "$minutes min ago"
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (m == 0) "$h h ago" else "$h h $m min ago"
 }
 
 /** "1 notice" / "3 notices", as on the PC's Home. */

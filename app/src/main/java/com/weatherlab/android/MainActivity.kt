@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.Bolt
@@ -552,15 +555,6 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
     v["tempinf"]?.let { m -> out += LiveTile("Indoor temperature", reading("tempinf", m), null, "tempinf", "tempinf") }
     v["humidityin"]?.let { m -> out += LiveTile("Indoor humidity", reading("humidityin", m), null, "humidityin", "humidityin")
     }
-    s.airport?.let { a ->
-        val vis = a.visibility
-        if (a.available && vis != null) {
-            val name = a.name.ifBlank { "Airport" }
-            val sub = listOfNotNull(clockOf(a.time)).let { if (it.isEmpty()) name else "$name, ${it[0]}" } +
-                (if (a.present.isNotEmpty()) " \u00B7 ${a.present.joinToString(", ")}" else "")
-            out += LiveTile("Visibility", "${"%.1f".format(vis.value)} ${vis.unit}", sub)
-        }
-    }
     v["uv"]?.let { m -> out += LiveTile("UV index", reading("uv", m), peak("uv", 0)?.let { "Peak today $it" }, "uv", "uv") }
     v["solarradiation"]?.let { m ->
         out += LiveTile("Solar", reading("solarradiation", m), peak("solarradiation", 0)?.let { "Peak today $it" }, "solarradiation", "solarradiation")
@@ -568,6 +562,17 @@ private fun liveTiles(s: Snapshot): List<LiveTile> {
     v["rainratein"]?.let { m -> out += LiveTile("Rain rate", reading("rainratein", m), null, "rainratein", "rainratein", decimals = 2) }
     v["dailyrainin"]?.let { m -> out += LiveTile("Rain today", reading("dailyrainin", m), null, "dailyrainin", "dailyrainin", decimals = 2) }
     return out
+}
+
+/** The nearest airport's visibility, for More readings at the bottom of Live (0.7.25). */
+private fun airportTile(s: Snapshot): LiveTile? {
+    val a = s.airport ?: return null
+    val vis = a.visibility ?: return null
+    if (!a.available) return null
+    val name = a.name.ifBlank { "Airport" }
+    val sub = listOfNotNull(clockOf(a.time)).let { if (it.isEmpty()) name else "$name, ${it[0]}" } +
+        (if (a.present.isNotEmpty()) " \u00B7 ${a.present.joinToString(", ")}" else "")
+    return LiveTile("Visibility", "${"%.1f".format(vis.value)} ${vis.unit}", sub)
 }
 
 /** The tiles in the PC's Home layout order (0.7.23): the cards it lists first, in its order, then the rest as before. */
@@ -594,7 +599,9 @@ private fun Dashboard(
     val rainRate = v["rainratein"]?.value
     val kind = skyKind(rainRate, gustMph, LocalDateTime.now().hour)
     // The hero card takes a soft tint from the weather (0.7.18): warm by day, deep blue at night, blue in rain.
-    Panel(brush = Brush.linearGradient(listOf(skyTint(kind).copy(alpha = 0.32f), Color.Transparent))) {
+    // Plain when the PC's Home layout says so (0.7.25); otherwise the soft sky tint.
+    val plain = s.home?.hero == "plain"
+    Panel(brush = if (plain) null else Brush.linearGradient(listOf(skyTint(kind).copy(alpha = 0.32f), Color.Transparent))) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -683,17 +690,43 @@ private fun Dashboard(
         }
     }
 
-    // Dew point at the bottom, with its last 24 hours. Tap it for its history.
-    v["dewpointf"]?.let { d ->
-        val line = s.tiles?.series?.get("dewpointf")
+    // More readings (0.7.25), closed until opened, as on the PC's Home: dew point and the nearest airport.
+    val dew = v["dewpointf"]
+    val airport = airportTile(s)
+    if (dew != null || airport != null) {
+        var more by rememberSaveable { mutableStateOf(false) }
         Spacer(Modifier.height(16.dp))
-        val card = LiveTile("Dew point", reading("dewpointf", d), null, "dewpointf", "dewpointf")
-        Tile(
-            card.label, card.value, Modifier.fillMaxWidth(), trend = line, range = rangeText(card, line),
-            onClick = { historyOf = Pair("dewpointf", "Dew point") },
-        )
-        val dewWord = s.current.words["dew_point"]
-        Text(if (dewWord != null) "Dew point: $dewWord. Tap the card for its history." else "Tap the card for its history.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 6.dp))
+        Panel {
+            Column {
+                Row(
+                    Modifier.fillMaxWidth().clickable(onClickLabel = if (more) "Hide more readings" else "Show more readings") { more = !more },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "More readings: " + listOfNotNull(dew?.let { "dew point" }, airport?.let { "the nearest airport" }).joinToString(" and "),
+                        fontSize = 15.sp, fontWeight = FontWeight.W700, color = C.text, modifier = Modifier.weight(1f),
+                    )
+                    Icon(if (more) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = C.muted)
+                }
+                if (more) {
+                    dew?.let { d ->
+                        val line = s.tiles?.series?.get("dewpointf")
+                        Spacer(Modifier.height(10.dp))
+                        val card = LiveTile("Dew point", reading("dewpointf", d), null, "dewpointf", "dewpointf")
+                        Tile(
+                            card.label, card.value, Modifier.fillMaxWidth(), trend = line, range = rangeText(card, line),
+                            onClick = { historyOf = Pair("dewpointf", "Dew point") },
+                        )
+                        val dewWord = s.current.words["dew_point"]
+                        Text(if (dewWord != null) "Dew point: $dewWord. Tap the card for its history." else "Tap the card for its history.", style = T.label, color = C.muted, modifier = Modifier.padding(top = 6.dp))
+                    }
+                    airport?.let { t ->
+                        Spacer(Modifier.height(10.dp))
+                        Tile(t.label, t.value, Modifier.fillMaxWidth(), sub = t.sub)
+                    }
+                }
+            }
+        }
     }
 }
 

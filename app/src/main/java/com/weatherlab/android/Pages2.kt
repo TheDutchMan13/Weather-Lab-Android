@@ -661,6 +661,15 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.25", "October 30, 2026",
+        listOf(
+            "The dew point card and the nearest airport's visibility moved into More readings at the bottom of Live, closed until you tap it, as on your PC's Home.",
+            "Live follows the plain right-now panel if you pick it in Home layout on your PC (Weather Lab 0.37.53 or newer).",
+            "The lightning notice says how long ago the last strike was, such as 4 min ago.",
+            "The home-screen widget shows rain today, and a line when lightning is close or the station data is more than 10 minutes old.",
+        ),
+    ),
+    NewsEntry(
         "0.7.24", "October 30, 2026",
         listOf(
             "Live has one notices strip under the reading right now, like Home on your PC. It says how many notices there are (lightning close by, old station data, or trouble reaching your PC) and opens to show them. It opens by itself when lightning is close or your PC can't be reached, and is hidden when there is nothing to say.",

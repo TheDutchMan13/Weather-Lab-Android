@@ -21,6 +21,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Only release from a version tag
+        run: |
+          # Started by hand from the Actions tab, GITHUB_REF_NAME would be "main", and a release tag named main
+          # would make the branch name ambiguous (0.7.26).
+          case "$GITHUB_REF" in
+            refs/tags/v*) ;;
+            *) echo "::error::Release only runs for a v* tag. Push a tag such as v0.7.26 instead."; exit 1 ;;
+          esac
       - name: Get the code
         uses: actions/checkout@v4
 

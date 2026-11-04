@@ -107,3 +107,25 @@ internal fun NoticesStrip(s: Snapshot, error: String?, offlineSince: Long?, onRe
         }
     }
 }
+
+
+/**
+ * A warning for an address the token would travel to unencrypted outside the home or Tailscale (0.7.26). Plain http
+ * to a home-network address is how Weather Lab normally works; to anything else (a public address or a name that
+ * isn't Tailscale's), the token could be read on the way. Null when there is nothing to warn about.
+ */
+internal fun addressWarning(address: String): String? {
+    if (address.isBlank()) return null
+    val full = WeatherLabApi.normalise(address)
+    if (full.startsWith("https://")) return null
+    val host = full.substringAfter("://").substringBeforeLast(":").removePrefix("[").removeSuffix("]").lowercase()
+    if (host == "localhost" || host.endsWith(".ts.net") || host.endsWith(".local") || !host.contains('.')) return null
+    val parts = host.split(".").mapNotNull { it.toIntOrNull() }
+    if (parts.size == 4) {
+        val (a, b) = parts
+        val private = a == 10 || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127) || a == 127
+        if (private) return null
+    }
+    return "This address isn't on your home network or Tailscale, and the connection isn't encrypted, so the token " +
+        "could be read on the way. Use your PC's Tailscale address, or an https:// address."
+}

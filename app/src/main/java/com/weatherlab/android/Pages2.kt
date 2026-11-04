@@ -661,6 +661,22 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.26", "November 4, 2026",
+        listOf(
+            "Security: the token box now hides the token, and the copied setup code is marked as private so Android 13 and up doesn't show it in the copy preview.",
+            "Security: Settings warns you when the address isn't on your home network or Tailscale, because the connection isn't encrypted there. Use your PC's Tailscale address or an https:// address.",
+            "Security: a file name sent with a CSV export can no longer write outside the app's export folder.",
+            "Security: the address and token are no longer copied to a new phone or a backup, where they couldn't be opened anyway. If the saved settings can't be opened, the app asks for them again instead of crashing.",
+            "Fixed: the Storm overhead notification no longer stays up for good if the PC goes offline during a storm. It clears itself after 35 minutes without news.",
+            "Fixed: a sensor that is offline no longer breaks Live, the widget, the watch tile or the complication.",
+            "Fixed: rotating the phone no longer asks for the app lock again or jumps back to Live. Turning App lock on or off now hides or shows the app in the recent apps list straight away.",
+            "Fixed: the background check every 15 minutes now only runs when the storm notification is on or a widget is on your home screen.",
+            "Fixed: the widget keeps showing the last reading, with its time, when the PC can't be reached, instead of an error.",
+            "Fixed: the watch stops checking for new readings while the Weather Lab app isn't on screen, which saves battery.",
+            "Fixed: Keep history on this phone no longer opens a new database connection every minute.",
+        ),
+    ),
+    NewsEntry(
         "0.7.25", "October 30, 2026",
         listOf(
             "The dew point card and the nearest airport's visibility moved into More readings at the bottom of Live, closed until you tap it, as on your PC's Home.",

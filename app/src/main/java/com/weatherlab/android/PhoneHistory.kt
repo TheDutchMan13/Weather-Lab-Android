@@ -70,13 +70,18 @@ internal object PhoneHistory {
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
     }
 
+    // One helper for the whole app (0.7.26). A new one each minute left a database connection open every time.
+    @Volatile private var shared: Db? = null
+
+    private fun db(context: Context): Db = shared ?: synchronized(this) { shared ?: Db(context).also { shared = it } }
+
     /** Save the reading in [snapshot] if it is new enough, and drop anything older than [keepDays]. */
     fun record(context: Context, snapshot: Snapshot, keepDays: Int) {
         runCatching {
             val v = snapshot.current.values
             val now = System.currentTimeMillis() / 1000
             val ts = now - (snapshot.current.ageSeconds ?: 0)
-            val db = Db(context).writableDatabase
+            val db = db(context).writableDatabase
             val last = db.rawQuery("SELECT MAX(ts) FROM readings", null).use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else 0L }
             if (ts - last < MIN_GAP_SECONDS) return
             val values = ContentValues().apply {
@@ -94,7 +99,7 @@ internal object PhoneHistory {
 
     /** Saved readings since [sinceSeconds] (Unix time), oldest first. */
     fun readings(context: Context, sinceSeconds: Long = 0): List<StoredReading> = runCatching {
-        Db(context).readableDatabase.rawQuery(
+        db(context).readableDatabase.rawQuery(
             "SELECT ts, temp, hum, wind, gust, rain, tu, ru, wu FROM readings WHERE ts >= ? ORDER BY ts",
             arrayOf(sinceSeconds.toString()),
         ).use { c ->
@@ -113,7 +118,7 @@ internal object PhoneHistory {
     }.getOrDefault(emptyList())
 
     fun clear(context: Context) {
-        runCatching { Db(context).writableDatabase.delete("readings", null, null) }
+        runCatching { db(context).writableDatabase.delete("readings", null, null) }
     }
 }
 

@@ -39,7 +39,7 @@ class WeatherWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = Prefs(context)
         val pal = palette(Scheme.from(prefs.scheme))
-        val data = load(prefs)
+        val data = load(context, prefs)
         provideContent {
             val text = ColorProvider(pal.text)
             val muted = ColorProvider(pal.muted)
@@ -66,7 +66,7 @@ class WeatherWidget : GlanceAppWidget() {
         }
     }
 
-    private suspend fun load(prefs: Prefs): WidgetData {
+    private suspend fun load(context: Context, prefs: Prefs): WidgetData {
         if (prefs.address.isBlank() || prefs.token.isBlank()) {
             return WidgetData("", "", "", false, "Open the app and add your address and token.")
         }
@@ -75,17 +75,31 @@ class WeatherWidget : GlanceAppWidget() {
             val (current, today) = withContext(Dispatchers.IO) { Pair(api.current(), api.today()) }
             // Older Weather Lab versions have no storm data; the widget just leaves the lightning line out.
             val storm = withContext(Dispatchers.IO) { try { api.storm() } catch (e: Exception) { null } }
-            val v = current.values
-            val temp = v["tempf"]?.let { "${"%.1f".format(it.value)}°" } ?: "--°"
-            val gust = v["windgustmph"]?.let { if (it.unit.contains("km")) it.value / 1.609344 else it.value }
-            val kind = skyKind(v["rainratein"]?.value, gust, LocalDateTime.now().hour)
-            val hi = today.high?.let { "${Math.round(it.value)}°" } ?: "--"
-            val lo = today.low?.let { "${Math.round(it.value)}°" } ?: "--"
-            val rain = today.rain?.let { r -> " · Rain ${"%.2f".format(r.value)} ${r.unit}" } ?: ""
-            WidgetData(temp, conditionWord(kind), "High $hi · Low $lo$rain", true, "", widgetNotice(storm, current.ageSeconds))
+            shown(current, today, widgetNotice(storm, current.ageSeconds))
         } catch (e: Exception) {
-            WidgetData("", "", "", true, "Couldn't reach Weather Lab. Is the PC on?")
+            // The PC can't be reached: keep showing the last reading the app saved, saying how old it is (0.7.26),
+            // instead of dropping it, so an old reading never looks current.
+            val saved = withContext(Dispatchers.IO) { SnapshotCache.load(context) }
+            if (saved == null) {
+                WidgetData("", "", "", true, "Couldn't reach Weather Lab. Is the PC on?")
+            } else {
+                val (snap, at) = saved
+                val clock = java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+                shown(snap.current, snap.today, "Offline · last reading at $clock")
+            }
         }
+    }
+
+    private fun shown(current: Current, today: Today, notice: String): WidgetData {
+        val v = current.values
+        val temp = v["tempf"]?.let { "${"%.1f".format(it.value)}°" } ?: "--°"
+        val gust = v["windgustmph"]?.let { if (it.unit.contains("km")) it.value / 1.609344 else it.value }
+        val kind = skyKind(v["rainratein"]?.value, gust, LocalDateTime.now().hour)
+        val hi = today.high?.let { "${Math.round(it.value)}°" } ?: "--"
+        val lo = today.low?.let { "${Math.round(it.value)}°" } ?: "--"
+        val rain = today.rain?.let { r -> " · Rain ${"%.2f".format(r.value)} ${r.unit}" } ?: ""
+        return WidgetData(temp, conditionWord(kind), "High $hi · Low $lo$rain", true, "", notice)
     }
 }
 
@@ -101,4 +115,16 @@ internal fun widgetNotice(storm: Storm?, ageSeconds: Int?): String {
 
 class WeatherWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = WeatherWidget()
+
+    // The background refresh runs only while something needs it (0.7.26): start it when the first widget is added,
+    // and stop it when the last one goes (unless storm notifications still need it).
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        StormWatch.schedule(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        StormWatch.schedule(context)
+    }
 }

@@ -95,7 +95,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -118,11 +121,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         prefs = Prefs(this)
         WatchSync.push(this, prefs.address, prefs.token)
-        // With App lock on, a fresh start is locked and the app's picture is hidden in the recent apps list.
-        if (prefs.lockAfter >= 0) {
+        // With App lock on, a fresh start is locked. Rotating the phone or resizing the window rebuilds the screen;
+        // that keeps the lock as it was instead of asking again (0.7.26).
+        if (savedInstanceState != null) {
+            locked = savedInstanceState.getBoolean(STATE_LOCKED, false)
+            leftAt = savedInstanceState.getLong(STATE_LEFT_AT, 0L)
+        } else if (prefs.lockAfter >= 0) {
             locked = true
-            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
+        applySecure()
         StormWatch.schedule(this)
         setContent {
             var scheme by remember { mutableStateOf(Scheme.from(prefs.scheme)) }
@@ -161,10 +168,37 @@ class MainActivity : ComponentActivity() {
         if (after >= 0 && leftAt > 0 && (SystemClock.elapsedRealtime() - leftAt) / 1000 >= after) locked = true
     }
 
+    override fun onPause() {
+        super.onPause()
+        applySecure()  // before Android takes the picture for the recent apps list
+    }
+
     override fun onStop() {
         super.onStop()
         AppState.foreground.value = false
-        leftAt = SystemClock.elapsedRealtime()
+        // A rotation stops and restarts the screen; that isn't leaving the app, so it doesn't count (0.7.26).
+        leftAt = if (isChangingConfigurations) 0L else SystemClock.elapsedRealtime()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_LOCKED, locked)
+        outState.putLong(STATE_LEFT_AT, leftAt)
+    }
+
+    /** Hide the app's picture in the recent apps list while App lock is on, and show it again when it's off. Checked
+     * on start and whenever the app is left, so changing App lock takes effect without restarting (0.7.26). */
+    private fun applySecure() {
+        if (prefs.lockAfter >= 0) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private companion object {
+        const val STATE_LOCKED = "weatherlab_locked"
+        const val STATE_LEFT_AT = "weatherlab_left_at"
     }
 }
 
@@ -195,10 +229,10 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var lockAfter by remember { mutableIntStateOf(prefs.lockAfter) }
     val context = LocalContext.current
     val needsSetup = prefs.address.isBlank() || prefs.token.isBlank()
-    var tab by remember { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }
-    var sub by remember { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
-    var dayKey by remember { mutableStateOf<String?>(null) }
-    var historyView by remember { mutableStateOf(HistoryView.DAILY) }
+    var tab by rememberSaveable { mutableStateOf(if (needsSetup) Tab.MORE else Tab.LIVE) }  // kept on rotation (0.7.26)
+    var sub by rememberSaveable { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
+    var dayKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var historyView by rememberSaveable { mutableStateOf(HistoryView.DAILY) }
     val inSub = (tab == Tab.MORE && sub != MoreSub.MENU) || (tab == Tab.HISTORY && dayKey != null)
     val goBack: () -> Unit = {
         if (dayKey != null) {
@@ -410,6 +444,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     onStorm = { on ->
                         stormOn = on
                         prefs.stormNotify = on
+                        StormWatch.schedule(context, on)
                     },
                     pauseBg = pauseBg,
                     onPauseBg = { on ->
@@ -820,9 +855,13 @@ private fun SettingsPage(
                     value = a, onValueChange = { a = it }, label = { Text("Address") },
                     singleLine = true, colors = fieldColors, modifier = Modifier.fillMaxWidth(),
                 )
+                addressWarning(a)?.let { Note(it, C.warn) }
+                // Hidden like a password, and the keyboard is asked not to learn it (0.7.26).
                 OutlinedTextField(
                     value = t, onValueChange = { t = it }, label = { Text("Token") },
                     singleLine = true, colors = fieldColors, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 )
                 Button(
                     onClick = { onSave(a, t) },
@@ -956,7 +995,7 @@ private fun SettingsPage(
                 Button(
                     onClick = {
                         if (a.isNotBlank() && t.isNotBlank()) {
-                            copyText(context, "Weather Lab setup code", SetupCode.make(a, t))
+                            copyText(context, "Weather Lab setup code", SetupCode.make(a, t), sensitive = true)
                             codeNote = "Setup code copied."
                         } else {
                             codeNote = "Fill in the address and token first."

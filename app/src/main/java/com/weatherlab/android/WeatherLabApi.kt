@@ -252,11 +252,14 @@ class WeatherLabApi(address: String, private val token: String, private val save
         val j = get("/api/v1/current")
         val metric = j.optBoolean("metric")
         val reading = j.optJSONObject("reading") ?: return Current(null, emptyMap(), metric)
-        val values = reading.getJSONObject("values")
+        // A sensor that is offline can come back as null; it's left out instead of failing the whole screen (0.7.26).
+        val values = reading.optJSONObject("values") ?: JSONObject()
         val map = LinkedHashMap<String, Measure>()
         values.keys().forEach { key ->
-            val item = values.getJSONObject(key)
-            map[key] = Measure(item.getDouble("value"), item.optString("unit"))
+            val item = values.optJSONObject(key) ?: return@forEach
+            val v = item.num("value") ?: return@forEach
+            if (v.isNaN()) return@forEach
+            map[key] = Measure(v, item.optString("unit"))
         }
         val words = LinkedHashMap<String, String>()
         reading.optJSONObject("words")?.let { w -> w.keys().forEach { k -> w.optString(k).takeIf { it.isNotBlank() }?.let { words[k] = it } } }
@@ -265,8 +268,8 @@ class WeatherLabApi(address: String, private val token: String, private val save
 
     fun today(): Today {
         val j = get("/api/v1/today")
-        fun measure(name: String): Measure? =
-            j.optJSONObject(name)?.let { Measure(it.getDouble("value"), it.optString("unit")) }
+        fun measure(name: String): Measure? =  // null just after midnight, before today's first reading (0.7.26)
+            j.optJSONObject(name)?.let { o -> o.num("value")?.takeUnless { it.isNaN() }?.let { Measure(it, o.optString("unit")) } }
         return Today(j.optString("date"), measure("high"), measure("low"), measure("rain"), j.optInt("readings"))
     }
 

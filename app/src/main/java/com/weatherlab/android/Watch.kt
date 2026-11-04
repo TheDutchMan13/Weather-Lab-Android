@@ -5,6 +5,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -71,6 +73,9 @@ object StormWatch {
             .setContentTitle(note.title)
             .setContentText(note.text)
             .setOngoing(true)
+            // Gone by itself after 35 minutes without an update (0.7.26), so a storm warning can't stay up for good
+            // when the PC goes offline mid-storm. Each update while the storm lasts restarts the clock.
+            .setTimeoutAfter(35 * 60 * 1000L)
             .setOnlyAlertOnce(true)
             .setShowWhen(true)
             .setContentIntent(open)
@@ -85,12 +90,29 @@ object StormWatch {
         }
     }
 
-    /** Starts the repeating background check once. Safe to call every time the app opens. */
-    fun schedule(context: Context) {
+    /** True when a Weather Lab widget is on the home screen. */
+    fun hasWidget(context: Context): Boolean = try {
+        AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, WeatherWidgetReceiver::class.java)).isNotEmpty()
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * Starts the repeating background check when something needs it - the storm notification or a widget - and stops
+     * it otherwise (0.7.26), so the phone doesn't wake up every 15 minutes for nothing. Safe to call any time.
+     */
+    fun schedule(context: Context, stormNotify: Boolean = Prefs(context).stormNotify) {
+        val wm = WorkManager.getInstance(context)
+        if (!stormNotify && !hasWidget(context)) {
+            wm.cancelUniqueWork(WORK)
+            if (!stormNotify) clear(context)
+            return
+        }
         val request = PeriodicWorkRequestBuilder<WatchWorker>(15, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+        wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 }
 

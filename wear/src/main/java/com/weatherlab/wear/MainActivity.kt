@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,8 +62,11 @@ private fun WatchApp() {
     var ui by remember { mutableStateOf<Ui>(Ui.Loading) }
     var reload by remember { mutableIntStateOf(0) }
 
-    // Loads when opened, when Refresh is tapped, and then every 5 minutes while the app is on screen.
+    // Loads when opened, when Refresh is tapped, and then every 5 minutes while the app is on screen. It stops while
+    // the app is off screen (0.7.26); before, it kept checking in the background and drained the watch's battery.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(reload) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
         while (true) {
             val store = WatchStore(context)
             if (!store.configured) ConfigSync.pullExisting(context)
@@ -75,6 +81,7 @@ private fun WatchApp() {
                 }
             }
             delay(300_000)
+        }
         }
     }
 

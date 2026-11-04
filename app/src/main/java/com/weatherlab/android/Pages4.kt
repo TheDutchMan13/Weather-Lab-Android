@@ -56,9 +56,16 @@ private fun openLink(context: Context, url: String) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }
 
-internal fun copyText(context: Context, label: String, text: String) {
+/** Copy to the clipboard. sensitive (0.7.26): Android 13 and up hides it from the copy preview and keyboards. */
+internal fun copyText(context: Context, label: String, text: String, sensitive: Boolean = false) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    val clip = ClipData.newPlainText(label, text)
+    if (sensitive) {
+        clip.description.extras = android.os.PersistableBundle().apply {
+            putBoolean("android.content.extra.IS_SENSITIVE", true)
+        }
+    }
+    clipboard.setPrimaryClip(clip)
 }
 
 @Composable

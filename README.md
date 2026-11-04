@@ -33,7 +33,7 @@ If the PC is off, or Weather Lab isn't open, the app shows the error from the PC
 ## Automatic builds
 
 Every push to `main` builds the debug APK on GitHub (see `.github/workflows/build.yml`).
-Open the repository's **Actions** tab, pick the latest run, and download **WeatherLabAndroid-debug** from the bottom of the page.
+Open the repository's **Actions** tab, pick the latest run, and download **WeatherLabAndroid-debug** from the bottom of the page. That debug APK is for testing only: anyone with your phone and a USB cable can inspect a debug app, and each build may need the old one removed first. For everyday use, install the signed APK from the **Releases** page.
 Copy the APK to your phone and open it to install. Allow installs from your browser or file manager when Android asks.
 
 ## Making a release

@@ -1,18 +1,37 @@
 package com.weatherlab.android
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 /** The address and token, kept encrypted on the phone. */
 class Prefs(context: Context) {
-    private val prefs = EncryptedSharedPreferences.create(
-        context,
-        "weatherlab_prefs",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+    private val prefs: SharedPreferences = open(context)
+
+    private companion object {
+        const val FILE = "weatherlab_prefs"
+
+        private fun create(context: Context): SharedPreferences = EncryptedSharedPreferences.create(
+            context,
+            FILE,
+            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        )
+
+        /**
+         * The encrypted settings. If they can't be opened (0.7.26) - copied from an old phone without the key that
+         * locks them, or a damaged key - they're cleared and made again, so the app asks for the address and token
+         * once more instead of crashing on every start, along with the widget and background job.
+         */
+        fun open(context: Context): SharedPreferences = try {
+            create(context)
+        } catch (e: Exception) {
+            context.deleteSharedPreferences(FILE)
+            create(context)
+        }
+    }
 
     var address: String
         get() = prefs.getString("address", "").orEmpty()

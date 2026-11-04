@@ -435,7 +435,10 @@ fun ExportPage(address: String, token: String) {
 
 private fun shareCsv(context: Context, export: CsvExport) {
     val folder = File(context.cacheDir, "exports").apply { mkdirs() }
-    val file = File(folder, export.filename.ifBlank { "weatherlab-daily.csv" })
+    // The name comes from the PC, so only its last part and safe characters are used (0.7.26): a name such as
+    // ../../shared_prefs/x could otherwise write over the app's own files.
+    val safe = File(export.filename).name.replace(Regex("[^A-Za-z0-9._-]"), "_").trimStart('.')
+    val file = File(folder, safe.takeIf { it.endsWith(".csv") && it.length > 4 } ?: "weatherlab-daily.csv")
     file.writeText(export.csv)
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     val send = Intent(Intent.ACTION_SEND).apply {

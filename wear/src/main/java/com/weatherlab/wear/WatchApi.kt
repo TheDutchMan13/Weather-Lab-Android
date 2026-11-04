@@ -75,9 +75,12 @@ object WatchApi {
     fun parse(current: JSONObject, today: JSONObject, briefing: JSONObject?): WatchData {
         val reading = current.optJSONObject("reading")
         val values = reading?.optJSONObject("values")
+        // Null values (a sensor offline, or today's high just after midnight) are skipped, not a crash (0.7.26).
+        fun num(o: JSONObject?, key: String): Double? =
+            if (o == null || !o.has(key) || o.isNull(key)) null else o.optDouble(key).takeUnless { it.isNaN() }
         fun value(key: String): Pair<Double, String>? =
-            values?.optJSONObject(key)?.let { it.getDouble("value") to it.optString("unit") }
-        fun day(name: String): Double? = today.optJSONObject(name)?.let { if (it.has("value")) it.getDouble("value") else null }
+            values?.optJSONObject(key)?.let { o -> num(o, "value")?.let { it to o.optString("unit") } }
+        fun day(name: String): Double? = num(today.optJSONObject(name), "value")
 
         val temp = value("tempf")
         val wind = value("windspeedmph")

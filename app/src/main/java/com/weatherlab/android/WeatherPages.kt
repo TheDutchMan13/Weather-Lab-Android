@@ -23,8 +23,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -35,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -662,6 +665,15 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.27", "November 5, 2026",
+        listOf(
+            "A shorter More menu: 16 rows instead of 24. Pages that belong together are now tabs of one page: Rain (Calendar, Events), Past years (On this day, Milestones), Sun and heat, Storms (Lightning, Tropics, Radar), and About (About, What's New).",
+            "Forecast accuracy moved into the Forecast tab, next to the forecast. Phone alerts moved into Settings.",
+            "What's New shows the newest 3 versions. Older versions fold away; tap to open them.",
+            "Behind the scenes: the page files are named after what they hold.",
+        ),
+    ),
+    NewsEntry(
         "0.7.26", "November 4, 2026",
         listOf(
             "Security: the token box now hides the token, and the copied setup code is marked as private so Android 13 and up doesn't show it in the copy preview.",
@@ -886,13 +898,33 @@ private val APP_NEWS = listOf(
 @Composable
 fun WhatsNewPage(address: String, token: String) {
     PageColumn {
+        // The newest 3 versions are open; the rest fold away (0.7.27).
         Section("This app")
-        APP_NEWS.forEach { Panel { NewsBlock(it) }; Spacer(Modifier.height(10.dp)) }
+        FoldedNews(APP_NEWS, "app")
         Section("Weather Lab on your PC")
-        Fetch(address, token, "whatsnew", { it.whatsNew() }) { list ->
-            list.take(12).forEach { Panel { NewsBlock(it) }; Spacer(Modifier.height(10.dp)) }
+        Fetch(address, token, "whatsnew", { it.whatsNew() }) { list -> FoldedNews(list.take(12), "pc") }
+    }
+}
+
+private const val NEWS_OPEN = 3
+
+@Composable
+private fun FoldedNews(entries: List<NewsEntry>, key: String) {
+    var open by rememberSaveable(key) { mutableStateOf(false) }
+    entries.take(NEWS_OPEN).forEach { Panel { NewsBlock(it) }; Spacer(Modifier.height(10.dp)) }
+    val older = entries.drop(NEWS_OPEN)
+    if (older.isEmpty()) return
+    Panel {
+        Row(
+            Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Older versions (${older.size})", style = T.body, color = C.text, modifier = Modifier.weight(1f))
+            Icon(if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = C.muted)
         }
     }
+    Spacer(Modifier.height(10.dp))
+    if (open) older.forEach { Panel { NewsBlock(it) }; Spacer(Modifier.height(10.dp)) }
 }
 
 @Composable

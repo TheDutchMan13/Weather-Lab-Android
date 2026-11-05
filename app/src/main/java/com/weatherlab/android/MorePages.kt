@@ -3,6 +3,7 @@ package com.weatherlab.android
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -186,7 +187,38 @@ enum class MoreSub(val label: String) {
     AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"), ABOUT("About"),
 }
 
-private data class MoreItem(val sub: MoreSub, val about: String)
+private data class MoreItem(val sub: MoreSub, val about: String, val label: String = sub.label)
+
+// Pages that are tabs of one page (0.7.27): the page's title, then each tab and its short name.
+// The More menu opens the first tab; a chip row on top switches between them.
+internal data class PageGroup(val title: String, val tabs: List<Pair<MoreSub, String>>)
+
+internal val PAGE_GROUPS = listOf(
+    PageGroup("Rain", listOf(MoreSub.RAIN_CAL to "Calendar", MoreSub.RAIN_EVENTS to "Events")),
+    PageGroup("Past years", listOf(MoreSub.ON_THIS_DAY to "On this day", MoreSub.MILESTONES to "Milestones")),
+    PageGroup("Sun and heat", listOf(MoreSub.SUN to "Sun", MoreSub.HEAT to "Heat safety")),
+    PageGroup("Storms", listOf(MoreSub.LIGHTNING to "Lightning", MoreSub.TROPICS to "Tropics", MoreSub.RADAR to "Radar")),
+    PageGroup("Settings", listOf(MoreSub.SETTINGS to "This phone", MoreSub.PUSH to "Phone alerts")),
+    PageGroup("About", listOf(MoreSub.ABOUT to "About", MoreSub.WHATS_NEW to "What's New")),
+)
+
+internal fun groupOf(sub: MoreSub): PageGroup? = PAGE_GROUPS.firstOrNull { g -> g.tabs.any { it.first == sub } }
+
+/** The chip row on top of a grouped page, then the page itself. */
+@Composable
+internal fun GroupedPage(sub: MoreSub, onPick: (MoreSub) -> Unit, page: @Composable () -> Unit) {
+    val group = groupOf(sub)
+    if (group == null) {
+        page()
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            Chips(group.tabs.map { it.second }, group.tabs.indexOfFirst { it.first == sub }) { onPick(group.tabs[it].first) }
+        }
+        Box(Modifier.weight(1f)) { page() }
+    }
+}
 
 @Composable
 fun MorePage(onOpen: (MoreSub) -> Unit) {
@@ -194,37 +226,29 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
     val groups = listOf(
         "Now" to listOf(
             MoreItem(MoreSub.BRIEFING, "Today at a glance, against yesterday and last year"),
-            MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days"),
+            MoreItem(MoreSub.ALERT_HISTORY, "Alerts from the last 14 days", "Alerts"),
             MoreItem(MoreSub.AIRPORT, "Your station next to the nearest airport"),
         ),
         "History" to listOf(
             MoreItem(MoreSub.CHARTS, "Touch charts for 7 and 30 days"),
-            MoreItem(MoreSub.RAIN_CAL, "Every day of rain, month by month"),
-            MoreItem(MoreSub.RAIN_EVENTS, "Each wet spell"),
-            MoreItem(MoreSub.ON_THIS_DAY, "Today's date in every past year"),
-            MoreItem(MoreSub.MILESTONES, "First and last freeze, 90 and 100 degree days"),
+            MoreItem(MoreSub.RAIN_CAL, "Calendar and each wet spell", "Rain"),
+            MoreItem(MoreSub.ON_THIS_DAY, "On this day, first freeze, 100 degree days", "Past years"),
             MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
             MoreItem(MoreSub.REWIND, "Replay any past day"),
-            MoreItem(MoreSub.FC_ACCURACY, "How close the forecast highs were"),
         ),
         "Weather" to listOf(
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
             MoreItem(MoreSub.WIND, "Where the wind comes from"),
-            MoreItem(MoreSub.SUN, "UV, sunshine and sunburn times"),
-            MoreItem(MoreSub.HEAT, "Heat index, time in each level and dangerous days"),
+            MoreItem(MoreSub.SUN, "UV, sunburn times and heat safety", "Sun and heat"),
         ),
         "Storms" to listOf(
-            MoreItem(MoreSub.LIGHTNING, "Strikes by day and the closest one"),
-            MoreItem(MoreSub.TROPICS, "Tropical storms and how far away they are"),
-            MoreItem(MoreSub.RADAR, "National Weather Service radar for your area"),
+            MoreItem(MoreSub.LIGHTNING, "Lightning, tropical storms and radar", "Lightning, Tropics, Radar"),
         ),
         "Station" to listOf(
             MoreItem(MoreSub.STATION, "Data health, sensors, batteries"),
-            MoreItem(MoreSub.SETTINGS, "Connection, notifications, look"),
-            MoreItem(MoreSub.PUSH, "Get PC alerts on this phone"),
+            MoreItem(MoreSub.SETTINGS, "Connection, look, phone alerts"),
             MoreItem(MoreSub.EXPORT, "Send your daily summaries as a CSV"),
-            MoreItem(MoreSub.WHATS_NEW, "Everything added"),
-            MoreItem(MoreSub.ABOUT, "Version, privacy, source code, licence"),
+            MoreItem(MoreSub.ABOUT, "Version, What's New, privacy, licence"),
         ),
     )
     PageColumn {
@@ -237,7 +261,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
                             Modifier.fillMaxWidth().clickable { onOpen(item.sub) }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column(Modifier.weight(1f)) { InfoRow(item.sub.label, "", sub = item.about) }
+                            Column(Modifier.weight(1f)) { InfoRow(item.label, "", sub = item.about) }
                             Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = C.muted)
                         }
                     }

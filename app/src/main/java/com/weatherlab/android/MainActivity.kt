@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -233,6 +234,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
     var sub by rememberSaveable { mutableStateOf(if (needsSetup) MoreSub.SETTINGS else MoreSub.MENU) }
     var dayKey by rememberSaveable { mutableStateOf<String?>(null) }
     var historyView by rememberSaveable { mutableStateOf(HistoryView.DAILY) }
+    var forecastView by rememberSaveable { mutableIntStateOf(0) }  // 0 forecast, 1 accuracy (0.7.27)
     val inSub = (tab == Tab.MORE && sub != MoreSub.MENU) || (tab == Tab.HISTORY && dayKey != null)
     val goBack: () -> Unit = {
         if (dayKey != null) {
@@ -306,7 +308,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 title = {
                     val title = when {
                         dayKey != null -> "Day"
-                        tab == Tab.MORE -> sub.label
+                        tab == Tab.MORE -> groupOf(sub)?.title ?: sub.label
                         else -> tab.label
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -383,7 +385,17 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         sub = MoreSub.BRIEFING
                     },
                 ) }
-                Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) { ForecastPage(address, token) }
+                Tab.FORECAST -> Paned(wide, { SunPage(address, token) }) {
+                    // Forecast accuracy moved here from More (0.7.27).
+                    Column(Modifier.fillMaxSize()) {
+                        Box(Modifier.padding(horizontal = 16.dp)) {
+                            Chips(listOf("Forecast", "Accuracy"), forecastView) { forecastView = it }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            if (forecastView == 1) ForecastAccuracyPage(address, token) else ForecastPage(address, token)
+                        }
+                    }
+                }
                 Tab.STORM -> Paned(wide, { LightningPage(address, token) }) { StormPage(snapshot, stormOn) }
                 Tab.HISTORY -> HistoryTab(
                     address, token, historyView, { historyView = it }, prefs, dayKey,
@@ -393,7 +405,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         sub = it
                     },
                 )
-                Tab.MORE -> when {
+                Tab.MORE -> GroupedPage(sub, { sub = it }) { when {
                     sub == MoreSub.MENU -> MorePage { sub = it }
                     sub == MoreSub.BRIEFING -> BriefingPage(address, token)
                     sub == MoreSub.CHARTS -> ChartsPage(address, token)
@@ -467,7 +479,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                         prefs.lockAfter = seconds
                     },
                     )
-                }
+                } }
             }
           }
         }

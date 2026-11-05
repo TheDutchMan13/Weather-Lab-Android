@@ -1,3 +1,4 @@
+// Weather pages: touch charts, rankings, rain, wind and lightning, sun and heat, station, What's New and the Forecast tab.
 package com.weatherlab.android
 
 import androidx.compose.foundation.Canvas

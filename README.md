@@ -49,7 +49,7 @@ up somewhere safe (not in this folder).
 3. In the repository on GitHub, open Settings > Secrets and variables > Actions, and add four secrets:
    `KEYSTORE_BASE64` (the text from step 2), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`weatherlab`) and `KEY_PASSWORD`
    (the same as the keystore password, unless you chose another).
-4. Raise `versionCode` and `versionName` in `app/build.gradle.kts`, push, then tag it:
+4. Raise `versionCode` and `versionName` in both `app/build.gradle.kts` and `wear/build.gradle.kts`, push, then tag it:
    `git tag v0.3.0` and `git push origin v0.3.0`. GitHub builds the signed APK and posts it under Releases.
 
 ## AI disclaimer

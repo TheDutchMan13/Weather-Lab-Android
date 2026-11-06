@@ -13,8 +13,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 30
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.7.29"
+        versionCode = 39
+        versionName = "0.7.30"
     }
 
     // Same signing as the phone app when the release secrets are present (the phone and watch app must be signed
@@ -49,18 +49,18 @@ android {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2024.09.00"))
-    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")  // the swipe pages (0.7.28)
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.wear.compose:compose-foundation:1.4.0")
-    implementation("androidx.wear.compose:compose-material:1.4.0")
-    implementation("androidx.wear.tiles:tiles:1.4.0")
-    implementation("androidx.wear.protolayout:protolayout:1.2.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.wear.compose:compose-foundation:1.4.1")
+    implementation("androidx.wear.compose:compose-material:1.4.1")
+    implementation("androidx.wear.tiles:tiles:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout:1.2.1")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
-    implementation("com.google.android.gms:play-services-wearable:18.2.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 }

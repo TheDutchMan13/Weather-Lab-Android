@@ -12,8 +12,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.7.29"
+        versionCode = 39
+        versionName = "0.7.30"
     }
 
     // Release signing. The key never lives in the repo: the release workflow supplies it through these settings.
@@ -48,15 +48,15 @@ android {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2024.09.00"))
-    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
-    implementation("com.google.android.gms:play-services-wearable:18.2.0")
-    implementation("androidx.glance:glance-appwidget:1.1.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

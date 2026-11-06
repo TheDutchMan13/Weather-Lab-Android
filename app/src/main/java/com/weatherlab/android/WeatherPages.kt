@@ -665,6 +665,14 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.29", "November 6, 2026",
+        listOf(
+            "Wallpaper colours: a third look in Settings > Appearance takes its colours from your phone's wallpaper and follows your phone's dark mode (Android 12 and newer). Warning, temperature and rain colours stay the same, so warnings always stand out. The home screen widget uses it too.",
+            "Watch app: a new first page shows just the temperature, when rain is due, and either All clear or a tap-through to your alerts. Swipe for Details (the graph, wind, pressure, UV and today's rain), Next hours, and Storms and alerts.",
+            "Watch alerts are now a scrolling list of cards, one per alert, with the time. Tap a card to read all of it.",
+        ),
+    ),
+    NewsEntry(
         "0.7.28", "November 6, 2026",
         listOf(
             "Watch app: swipe between three pages: Now (with a 24-hour temperature graph, wind and direction, humidity, UV, pressure with its trend, and today's rain), Next hours (the hourly forecast and when rain is likely), and Storms and alerts (lightning, today's alerts, weather service warnings and any record set today).",

@@ -95,7 +95,7 @@ object WatchNotify {
             return
         }
         val open = PendingIntent.getActivity(
-            context, 1, Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, 2),
+            context, 1, Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, MainActivity.PAGE_ALERTS),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val quiet = WatchStore(context).isQuiet()

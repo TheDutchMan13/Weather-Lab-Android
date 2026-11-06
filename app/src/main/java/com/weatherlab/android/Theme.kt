@@ -1,5 +1,8 @@
 package com.weatherlab.android
 
+import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -7,12 +10,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -23,14 +29,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Ported from the AZ Weather Lab phone app's theme.dart (read only reference): same colours, same type scale.
-// Two looks: navy Dark and Light.
+// Three looks: navy Dark, Light, and Wallpaper (0.7.29), which takes its colours from the
+// phone's wallpaper on Android 12 and newer and follows the phone's own dark mode.
 
 enum class Scheme(val key: String, val label: String) {
     DARK("dark", "Dark"),
-    LIGHT("light", "Light");
+    LIGHT("light", "Light"),
+    WALLPAPER("wallpaper", "Wallpaper");
 
     companion object {
         fun from(key: String?): Scheme = entries.firstOrNull { it.key == key } ?: DARK
+
+        /** Wallpaper colours need Android 12; older phones only see Dark and Light. */
+        fun options(): List<Scheme> = entries.filter { it != WALLPAPER || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }
     }
 }
 
@@ -39,6 +50,8 @@ class Pal(
     val bg: Color, val card: Color, val line: Color, val bar: Color,
     val cyan: Color, val warn: Color, val bad: Color, val good: Color,
     val muted: Color, val text: Color, val quiet: Color,
+    /** The phone's own Material scheme when the colours come from the wallpaper, else null. */
+    val m3: ColorScheme? = null,
 )
 
 private fun c(v: Long) = Color(v or 0xFF000000L)
@@ -56,9 +69,31 @@ private val Navy = Pal(
     muted = c(0xB0B9DD), text = c(0xE8ECFF), quiet = c(0x6E78AE),
 )
 
-fun palette(s: Scheme): Pal = when (s) {
+/** True when the phone itself is in dark mode. */
+fun systemDark(context: Context): Boolean =
+    (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+fun palette(s: Scheme, context: Context, dark: Boolean = systemDark(context)): Pal = when (s) {
     Scheme.LIGHT -> Light
     Scheme.DARK -> Navy
+    Scheme.WALLPAPER -> wallpaper(context, dark)
+}
+
+/**
+ * Accents, cards and text come from the wallpaper. Warning, error and good colours stay
+ * fixed (taken from Navy or Light), so a storm warning never blends in with a normal card.
+ */
+private fun wallpaper(context: Context, dark: Boolean): Pal {
+    val fixed = if (dark) Navy else Light
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return fixed
+    val cs = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    return Pal(
+        light = !dark,
+        bg = cs.surface, card = cs.surfaceContainer, line = cs.outlineVariant, bar = cs.surfaceContainerHighest,
+        cyan = cs.primary, warn = fixed.warn, bad = fixed.bad, good = fixed.good,
+        muted = cs.onSurfaceVariant, text = cs.onSurface, quiet = cs.outline,
+        m3 = cs.copy(error = fixed.bad, background = cs.surface, onPrimary = cs.onPrimary),
+    )
 }
 
 val LocalPal = staticCompositionLocalOf { Navy }
@@ -132,19 +167,26 @@ private fun typography(): Typography {
 }
 
 private fun colorScheme(p: Pal): ColorScheme =
-    if (p.light) lightColorScheme(primary = p.cyan, surface = p.card, background = p.bg, onSurface = p.text, onBackground = p.text, error = p.bad)
+    p.m3 ?: if (p.light) lightColorScheme(primary = p.cyan, surface = p.card, background = p.bg, onSurface = p.text, onBackground = p.text, error = p.bad)
     else darkColorScheme(primary = p.cyan, surface = p.card, background = p.bg, onSurface = p.text, onBackground = p.text, error = p.bad, onPrimary = p.bg)
 
 @Composable
 fun WeatherLabTheme(scheme: Scheme, content: @Composable () -> Unit) {
-    val p = palette(scheme)
+    val p = palette(scheme, LocalContext.current, isSystemInDarkTheme())
     CompositionLocalProvider(LocalPal provides p) {
         MaterialTheme(colorScheme = colorScheme(p), typography = typography(), content = content)
     }
 }
 
 @Composable
-fun navItemColors() = NavigationBarItemDefaults.colors(
+fun navItemColors() = LocalPal.current.m3?.let { m ->
+    // Wallpaper colours: the standard Material pill, so the selected tab reads on any wallpaper.
+    NavigationBarItemDefaults.colors(
+        indicatorColor = m.secondaryContainer,
+        selectedIconColor = m.onSecondaryContainer, selectedTextColor = m.onSurface,
+        unselectedIconColor = m.onSurfaceVariant, unselectedTextColor = m.onSurfaceVariant,
+    )
+} ?: NavigationBarItemDefaults.colors(
     indicatorColor = C.cyan.copy(alpha = 50 / 255f),
     // Same as the phone app: the selected icon is black on the tinted pill, everything else is near white.
     selectedIconColor = Color.Black,
@@ -154,7 +196,13 @@ fun navItemColors() = NavigationBarItemDefaults.colors(
 )
 
 @Composable
-fun railItemColors() = NavigationRailItemDefaults.colors(
+fun railItemColors() = LocalPal.current.m3?.let { m ->
+    NavigationRailItemDefaults.colors(
+        indicatorColor = m.secondaryContainer,
+        selectedIconColor = m.onSecondaryContainer, selectedTextColor = m.onSurface,
+        unselectedIconColor = m.onSurfaceVariant, unselectedTextColor = m.onSurfaceVariant,
+    )
+} ?: NavigationRailItemDefaults.colors(
     indicatorColor = C.cyan.copy(alpha = 50 / 255f),
     selectedIconColor = Color.Black,
     selectedTextColor = C.text,

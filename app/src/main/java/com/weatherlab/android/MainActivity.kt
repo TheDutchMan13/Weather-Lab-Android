@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
             WeatherLabTheme(scheme) {
                 // Status and navigation bar icons follow the scheme, not the phone's own dark mode.
                 val view = LocalView.current
-                val light = palette(scheme).light
+                val light = LocalPal.current.light
                 SideEffect {
                     val c = WindowCompat.getInsetsController(window, view)
                     c.isAppearanceLightStatusBars = light
@@ -1051,7 +1051,7 @@ private fun SettingsPage(
         Panel {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Scheme.entries.forEach { s ->
+                Scheme.options().forEach { s ->
                     FilterChip(
                         selected = scheme == s,
                         onClick = { onScheme(s) },
@@ -1066,6 +1066,12 @@ private fun SettingsPage(
                         ),
                     )
                 }
+            }
+            if (scheme == Scheme.WALLPAPER) {
+                Text(
+                    "Colours come from your wallpaper and follow your phone's dark mode. Warning colours stay the same.",
+                    style = T.label, color = C.muted,
+                )
             }
             Text("Text size", style = T.body, color = C.text)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

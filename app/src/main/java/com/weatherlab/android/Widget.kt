@@ -38,7 +38,7 @@ private class WidgetData(
 class WeatherWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = Prefs(context)
-        val pal = palette(Scheme.from(prefs.scheme))
+        val pal = palette(Scheme.from(prefs.scheme), context)
         val data = load(context, prefs)
         provideContent {
             val text = ColorProvider(pal.text)

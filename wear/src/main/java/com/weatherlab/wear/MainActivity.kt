@@ -13,6 +13,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +59,9 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.TitleCard
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var startPage by mutableIntStateOf(0)
@@ -75,6 +80,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PAGE = "page"
+        const val PAGE_ALERTS = 3
     }
 }
 
@@ -90,13 +96,15 @@ private val Muted = Color(0xFF8A97A6)
 private val Amber = Color(0xFFF2B34A)
 private val Red = Color(0xFFEF6B5B)
 
-private const val PAGES = 3  // Now, Next hours, Storms and alerts (0.7.28)
+// Glance, Details, Next hours, Storms and alerts. Glance came first in 0.7.29; the old Now page is Details.
+private const val PAGES = 4
 
 @Composable
 private fun WatchApp(startPage: Int) {
     val context = LocalContext.current
     var ui by remember { mutableStateOf<Ui>(Ui.Loading) }
     var reload by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = startPage.coerceIn(0, PAGES - 1)) { PAGES }
     LaunchedEffect(startPage) { pager.scrollToPage(startPage.coerceIn(0, PAGES - 1)) }
 
@@ -149,8 +157,9 @@ private fun WatchApp(startPage: Int) {
                 is Ui.Ready -> Box(Modifier.fillMaxSize()) {
                     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
                         when (page) {
-                            0 -> NowPage(shown.data) { reload++ }
-                            1 -> ForecastPage(shown.data)
+                            0 -> GlancePage(shown.data) { scope.launch { pager.animateScrollToPage(MainActivity.PAGE_ALERTS) } }
+                            1 -> DetailsPage(shown.data) { reload++ }
+                            2 -> ForecastPage(shown.data)
                             else -> AlertsPage(shown.data)
                         }
                     }
@@ -172,14 +181,59 @@ private fun Page(content: ScalingLazyListScope.() -> Unit) {
     )
 }
 
+/** How many things on the alerts page need attention: lightning, weather service warnings and today's PC alerts. */
+private val WatchData.alertCount: Int get() = (if (storm != null) 1 else 0) + nwsAlerts.size + alerts.size
+
+/** First page (0.7.29): the temperature, one line about rain, and whether anything needs a look. Nothing to scroll. */
 @Composable
-private fun NowPage(d: WatchData, onRefresh: () -> Unit) = Page {
-    item { Text(d.tempText, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = Color.White) }
-    d.feelsText?.let { item { Text(it, fontSize = 14.sp, color = Muted) } }
+private fun GlancePage(d: WatchData, onAlerts: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(d.tempText, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Text(
+            d.rainSoon ?: d.highLowText, fontSize = 15.sp, color = Cyan, textAlign = TextAlign.Center,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(10.dp))
+        val count = d.alertCount
+        if (count == 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(Cyan, CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Text("All clear", fontSize = 13.sp, color = Muted)
+            }
+        } else {
+            val urgent = d.storm != null || d.nwsAlerts.isNotEmpty()
+            val label = d.storm?.let { "Lightning ${it.distance}" }
+                ?: if (count == 1) "1 alert" else "$count alerts"
+            Chip(
+                onClick = onAlerts,
+                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                icon = { Box(Modifier.size(10.dp).background(if (urgent) Red else Amber, CircleShape)) },
+                colors = ChipDefaults.secondaryChipColors(),
+            )
+        }
+        d.offlineText?.let {
+            Spacer(Modifier.height(6.dp))
+            Text(it, fontSize = 11.sp, color = Amber, textAlign = TextAlign.Center, maxLines = 2)
+        }
+    }
+}
+
+/** Second page: everything that used to be on the first page. */
+@Composable
+private fun DetailsPage(d: WatchData, onRefresh: () -> Unit) = Page {
+    item { Small("Details", Muted) }
+    d.feelsText?.let { item { Text(it, fontSize = 14.sp, color = Color.White) } }
     item { Text(d.highLowText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Cyan) }
     if (d.spark.size >= 2) item { Spark(d.spark) }
     if (d.windLine.isNotBlank()) item { Small(d.windLine, Color.White) }
     if (d.pressureLine.isNotBlank()) item { Small(d.pressureLine, Muted) }
+    d.uv?.let { uv -> item { Small("UV ${"%.0f".format(uv)}" + (d.uvWord?.let { " · $it" } ?: ""), Color.White) } }
+    d.rainToday?.let { r -> item { Small("Rain today ${"%.${if (d.rainUnit == "in") 2 else 1}f".format(r)} ${d.rainUnit}".trim(), Color.White) } }
     d.offlineText?.let { item { Small(it, Amber) } }
     d.headline?.let {
         item {
@@ -191,7 +245,6 @@ private fun NowPage(d: WatchData, onRefresh: () -> Unit) = Page {
         }
     }
     item { RefreshChip(onRefresh) }
-    item { Small("Swipe for the forecast and alerts", Muted) }
 }
 
 @Composable
@@ -215,27 +268,38 @@ private fun ForecastPage(d: WatchData) = Page {
     d.sunset?.let { item { Small("Sunset $it", Muted) } }
 }
 
+/** Storms and alerts as a scrolling list of cards (0.7.29). Tap a card to read all of it. */
 @Composable
 private fun AlertsPage(d: WatchData) = Page {
     item { Small("Storms and alerts", Muted) }
     val storm = d.storm
     if (storm != null) {
-        item { Text("Lightning ${storm.distance}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Amber) }
-        item { Small("${storm.strikes30m} strikes in 30 min · ${storm.trendText}", Muted) }
-    } else {
-        item { Text("No lightning nearby", fontSize = 15.sp, color = Color.White) }
+        item { AlertCard("Lightning ${storm.distance}", Amber, "now", "${storm.strikes30m} strikes in 30 min · ${storm.trendText}") }
     }
-    d.nwsAlerts.forEach { item { Small(it, Red) } }
-    d.records.forEach { item { Small(it, Red) } }
-    if (d.alerts.isEmpty()) {
-        if (storm == null && d.nwsAlerts.isEmpty()) item { Small("All clear today", Cyan) }
-    } else {
-        d.alerts.take(5).forEach { a ->
-            item { Small(a.text, Color.White) }
-            item { Small(clock(java.time.Instant.ofEpochSecond(a.ts).atZone(java.time.ZoneId.systemDefault()).toLocalTime()), Muted) }
-        }
+    d.nwsAlerts.forEach { item { AlertCard("Weather service", Red, null, it) } }
+    d.alerts.forEach { a ->
+        val time = clock(java.time.Instant.ofEpochSecond(a.ts).atZone(java.time.ZoneId.systemDefault()).toLocalTime())
+        item { AlertCard("Weather Lab", Color.White, time, a.text) }
     }
+    d.records.forEach { item { AlertCard("Record", Cyan, "today", it) } }
+    if (d.alertCount == 0) item { Small(if (d.records.isEmpty()) "All clear today" else "No alerts today", Cyan) }
     d.offlineText?.let { item { Small(it, Amber) } }
+}
+
+@Composable
+private fun AlertCard(title: String, titleColor: Color, time: String?, text: String) {
+    var open by remember { mutableStateOf(false) }
+    TitleCard(
+        onClick = { open = !open },
+        title = { Text(title, color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        time = time?.let { t -> { Text(t, color = Muted) } },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+    ) {
+        Text(
+            text, fontSize = 13.sp, color = Color.White,
+            maxLines = if (open) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** The last 24 hours of temperature as a small line. */

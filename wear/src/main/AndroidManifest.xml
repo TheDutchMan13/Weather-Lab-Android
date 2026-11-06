@@ -3,6 +3,8 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="false"
@@ -28,7 +30,7 @@
             </intent-filter>
         </activity>
 
-        <!-- The swipe-in tile: temperature, today's high and low, and the rain chance. -->
+        <!-- The weather tile: temperature, high and low, a 24-hour graph and when rain is due. -->
         <service
             android:name=".WeatherTileService"
             android:exported="true"
@@ -40,12 +42,60 @@
             </intent-filter>
         </service>
 
-        <!-- A watch-face complication: the temperature, with today's high underneath. -->
+        <!-- The storm and alerts tile (0.7.28). -->
+        <service
+            android:name=".StormTileService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/storm_tile_label"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
+
+        <!-- Temperature: short, a low-to-high dial, or a long line. -->
         <service
             android:name=".TempComplicationService"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:label="@string/complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <!-- Rain chance in the next hour (0.7.28). -->
+        <service
+            android:name=".RainComplicationService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/rain_complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <!-- Wind speed and direction (0.7.28). -->
+        <service
+            android:name=".WindComplicationService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/wind_complication_label"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
@@ -58,7 +108,43 @@
                 android:value="900" />
         </service>
 
-        <!-- Receives the address and token from the phone app. -->
+        <!-- UV index (0.7.28). -->
+        <service
+            android:name=".UvComplicationService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/uv_complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <!-- Sunset time (0.7.28). -->
+        <service
+            android:name=".SunsetComplicationService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/sunset_complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
+
+        <!-- Receives the address, token and quiet hours from the phone app, and alerts to show. -->
         <service
             android:name=".ConfigSyncService"
             android:exported="true">
@@ -67,6 +153,14 @@
                 <data
                     android:host="*"
                     android:pathPrefix="/weatherlab/config"
+                    android:scheme="wear" />
+            </intent-filter>
+            <!-- Storm and alert notifications sent by the phone (0.7.28). -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/weatherlab/alert"
                     android:scheme="wear" />
             </intent-filter>
         </service>

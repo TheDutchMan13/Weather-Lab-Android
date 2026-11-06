@@ -13,8 +13,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 30
         targetSdk = 35
-        versionCode = 36
-        versionName = "0.7.27"
+        versionCode = 37
+        versionName = "0.7.28"
     }
 
     // Same signing as the phone app when the release secrets are present (the phone and watch app must be signed
@@ -52,6 +52,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")  // the swipe pages (0.7.28)
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.wear.compose:compose-foundation:1.4.0")
     implementation("androidx.wear.compose:compose-material:1.4.0")

@@ -72,6 +72,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -262,6 +263,12 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 fetchedAt = System.currentTimeMillis()
                 error = null
                 StormWatch.update(context, snapshot?.storm, stormOn)
+                snapshot?.let { s ->
+                    withContext(Dispatchers.IO) {
+                        StormWatch.noteWatch(context)
+                        WatchAlerts.forward(context, s.storm, s.alerts)
+                    }
+                }
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't reach Weather Lab."
                 // Nothing in memory yet (the app was just opened): fall back to the last snapshot saved on the phone.
@@ -905,6 +912,8 @@ private fun SettingsPage(
             }
         }
 
+        WatchSettings(prefs)
+
         Section("Security and battery")
         Panel {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1151,3 +1160,75 @@ private fun reading(key: String, m: Measure): String {
     val sep = if (unit == "%" || unit.startsWith("°")) "" else " "
     return "$num$sep$unit".trim()
 }
+
+
+/** "10 pm", "7 am", "12 am". */
+private fun hourText(h: Int): String = when {
+    h == 0 -> "12 am"
+    h < 12 -> "$h am"
+    h == 12 -> "12 pm"
+    else -> "${h - 12} pm"
+}
+
+/** Settings > On your watch (0.7.28): alerts on the watch, and its quiet hours. Sent to the watch on every change. */
+@Composable
+private fun WatchSettings(prefs: Prefs) {
+    val context = LocalContext.current
+    var alertsOn by remember { mutableStateOf(prefs.watchAlerts) }
+    var quietOn by remember { mutableStateOf(prefs.watchQuietOn) }
+    var start by remember { mutableIntStateOf(prefs.watchQuietStart) }
+    var end by remember { mutableIntStateOf(prefs.watchQuietEnd) }
+    val save = {
+        prefs.watchAlerts = alertsOn
+        prefs.watchQuietOn = quietOn
+        prefs.watchQuietStart = start
+        prefs.watchQuietEnd = end
+        WatchSync.pushSettings(context)
+        StormWatch.schedule(context)
+    }
+    Section("On your watch")
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Storm and alert notifications", style = T.body, color = C.text)
+                    Text(
+                        "Sends lightning and Weather Lab alerts to the Weather Lab watch app, with a short buzz.",
+                        style = T.label, color = C.muted,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = alertsOn, onCheckedChange = { alertsOn = it; save() },
+                    colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Quiet hours", style = T.body, color = C.text)
+                    Text("Alerts still show on the watch, without the buzz.", style = T.label, color = C.muted)
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = quietOn, onCheckedChange = { quietOn = it; save() },
+                    colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                )
+            }
+            if (quietOn) {
+                HourStepper("From", start) { start = it; save() }
+                HourStepper("Until", end) { end = it; save() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = T.body, color = C.muted, modifier = Modifier.width(64.dp))
+        TextButton(onClick = { onChange((hour + 23) % 24) }) { Text("−", color = C.cyan, fontSize = 20.sp) }
+        Text(hourText(hour), style = T.body, color = C.text, modifier = Modifier.width(64.dp))
+        TextButton(onClick = { onChange((hour + 1) % 24) }) { Text("+", color = C.cyan, fontSize = 20.sp) }
+    }
+}
+

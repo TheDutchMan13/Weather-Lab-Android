@@ -3,4 +3,9 @@
     <string name="app_name">Weather Lab</string>
     <string name="tile_label">Weather Lab</string>
     <string name="complication_label">Temperature</string>
+    <string name="storm_tile_label">Storms and alerts</string>
+    <string name="rain_complication_label">Rain chance</string>
+    <string name="wind_complication_label">Wind</string>
+    <string name="uv_complication_label">UV index</string>
+    <string name="sunset_complication_label">Sunset</string>
 </resources>

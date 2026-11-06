@@ -665,6 +665,16 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.28", "November 6, 2026",
+        listOf(
+            "Watch app: swipe between three pages: Now (with a 24-hour temperature graph, wind and direction, humidity, UV, pressure with its trend, and today's rain), Next hours (the hourly forecast and when rain is likely), and Storms and alerts (lightning, today's alerts, weather service warnings and any record set today).",
+            "Watch tiles: the weather tile adds the 24-hour graph and when rain is due. A new Storms and alerts tile shows lightning, today's alerts, or All clear.",
+            "Watch complications: Rain chance, Wind, UV index and Sunset join Temperature. Temperature can also be a low-to-high dial or a long line (72° · Hi 86° · Rain 60%).",
+            "Storm and alert notifications on the watch, with a short buzz. They are sent by this phone, so the phone's own storm notification no longer shows twice. Turn them off, or set quiet hours (shown without the buzz), in Settings > On your watch.",
+            "When your PC can't be reached, the watch shows the last reading and its time instead of an error.",
+        ),
+    ),
+    NewsEntry(
         "0.7.27", "November 5, 2026",
         listOf(
             "A shorter More menu: 16 rows instead of 24. Pages that belong together are now tabs of one page: Rain (Calendar, Events), Past years (On this day, Milestones), Sun and heat, Storms (Lightning, Tropics, Radar), and About (About, What's New).",

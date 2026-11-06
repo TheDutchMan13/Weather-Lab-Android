@@ -78,6 +78,7 @@ object StormWatch {
             .setTimeoutAfter(35 * 60 * 1000L)
             .setOnlyAlertOnce(true)
             .setShowWhen(true)
+            .setLocalOnly(true)  // the watch gets its own copy from WatchAlerts (0.7.28), so it isn't shown twice
             .setContentIntent(open)
             .build()
         nm.notify(NOTE_ID, n)
@@ -87,6 +88,26 @@ object StormWatch {
         try {
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTE_ID)
         } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Checks whether a watch is connected and remembers it (0.7.28), so the background check only runs for the watch
+     * when there is one. Blocks briefly: call it off the main thread. Reschedules when the answer changes.
+     */
+    fun noteWatch(context: Context) {
+        val found = try {
+            com.google.android.gms.tasks.Tasks.await(
+                com.google.android.gms.wearable.Wearable.getNodeClient(context.applicationContext).connectedNodes,
+                3, TimeUnit.SECONDS,
+            ).isNotEmpty()
+        } catch (_: Throwable) {
+            return
+        }
+        val prefs = Prefs(context)
+        if (found && !prefs.watchPaired) {
+            prefs.watchPaired = true
+            schedule(context)
         }
     }
 
@@ -104,7 +125,8 @@ object StormWatch {
      */
     fun schedule(context: Context, stormNotify: Boolean = Prefs(context).stormNotify) {
         val wm = WorkManager.getInstance(context)
-        if (!stormNotify && !hasWidget(context)) {
+        val watch = Prefs(context).watchAlerts && Prefs(context).watchPaired
+        if (!stormNotify && !hasWidget(context) && !watch) {
             wm.cancelUniqueWork(WORK)
             if (!stormNotify) clear(context)
             return
@@ -122,8 +144,13 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val prefs = Prefs(applicationContext)
         if (prefs.address.isBlank() || prefs.token.isBlank()) return Result.success()
         try {
-            val storm = withContext(Dispatchers.IO) { WeatherLabApi(prefs.address, prefs.token).storm() }
+            val api = WeatherLabApi(prefs.address, prefs.token)
+            val storm = withContext(Dispatchers.IO) { api.storm() }
             StormWatch.update(applicationContext, storm, prefs.stormNotify)
+            if (prefs.watchAlerts) {
+                val alerts = withContext(Dispatchers.IO) { runCatching { api.alerts() }.getOrNull() }
+                withContext(Dispatchers.IO) { WatchAlerts.forward(applicationContext, storm, alerts) }
+            }
         } catch (_: Exception) {
             // Weather Lab was not reachable (PC off, or an older Weather Lab). Leave things as they are.
         }

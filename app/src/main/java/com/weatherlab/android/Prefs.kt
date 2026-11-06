@@ -75,4 +75,36 @@ class Prefs(context: Context) {
     var historyDays: Int
         get() = prefs.getInt("history_days", 90)
         set(value) = prefs.edit().putInt("history_days", value).apply()
+
+    // The watch (0.7.28): send storm and alert notifications to it, and its quiet hours (alerts show without a buzz).
+    var watchAlerts: Boolean
+        get() = prefs.getBoolean("watch_alerts", true)
+        set(value) = prefs.edit().putBoolean("watch_alerts", value).apply()
+
+    var watchQuietOn: Boolean
+        get() = prefs.getBoolean("watch_quiet_on", true)
+        set(value) = prefs.edit().putBoolean("watch_quiet_on", value).apply()
+
+    var watchQuietStart: Int
+        get() = prefs.getInt("watch_quiet_start", 22)
+        set(value) = prefs.edit().putInt("watch_quiet_start", value).apply()
+
+    var watchQuietEnd: Int
+        get() = prefs.getInt("watch_quiet_end", 7)
+        set(value) = prefs.edit().putInt("watch_quiet_end", value).apply()
+
+    /** True once a watch has been seen connected to this phone. */
+    var watchPaired: Boolean
+        get() = prefs.getBoolean("watch_paired", false)
+        set(value) = prefs.edit().putBoolean("watch_paired", value).apply()
+
+    /** The storm notification last sent to the watch ("" when none), so each change is sent once. */
+    var lastWatchStorm: String
+        get() = prefs.getString("last_watch_storm", "").orEmpty()
+        set(value) = prefs.edit().putString("last_watch_storm", value).apply()
+
+    /** The newest alert already sent to the watch (epoch seconds); 0 before the first check. */
+    var lastWatchAlertTs: Long
+        get() = prefs.getLong("last_watch_alert_ts", 0L)
+        set(value) = prefs.edit().putLong("last_watch_alert_ts", value).apply()
 }

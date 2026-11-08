@@ -111,6 +111,17 @@ data class SunInfo(
     val sunshineToday: Double, val sunshineWeek: Double, val sunrise: String?, val sunset: String?,
     val burnNow: List<Burn>, val burnPeak: List<Burn>,
 )
+data class AstroDay(val label: String, val sunrise: String?, val sunset: String?, val dayLength: String, val moon: String)
+data class AstroMoon(
+    val name: String, val illumination: Double, val ageDays: Double, val waxing: Boolean,
+    val rise: String?, val set: String?, val nextFull: String, val nextNew: String,
+)
+/** The Astronomy page (0.7.31). hasLocation is false until the PC has the station's location. */
+data class AstroInfo(
+    val hasLocation: Boolean, val sunrise: String?, val sunset: String?, val sunProgress: Double?,
+    val dayLength: String, val dayChange: String, val solarNoon: String?, val noonAltitude: Int,
+    val goldenHour: String?, val twilightEnd: String?, val moon: AstroMoon?, val days: List<AstroDay>,
+)
 data class HeatLevel(val level: String, val from: Double?, val advice: String)
 data class HeatHours(val level: String, val hours: Double)
 data class HeatDangerDay(val date: String, val value: Double?, val level: String)
@@ -450,6 +461,22 @@ class WeatherLabApi(address: String, private val token: String, private val save
             j.optDouble("sunshine_today_hours"), j.optDouble("sunshine_week_hours"),
             if (j.isNull("sunrise")) null else j.optString("sunrise"), if (j.isNull("sunset")) null else j.optString("sunset"),
             burns("burn_now"), burns("burn_peak"),
+        )
+    }
+
+    fun astronomy(): AstroInfo {
+        val j = get("/api/v1/astronomy")
+        if (!j.optBoolean("has_location", false)) return AstroInfo(false, null, null, null, "", "", null, 0, null, null, null, emptyList())
+        val m = j.getJSONObject("moon")
+        return AstroInfo(
+            true, j.text("sunrise"), j.text("sunset"), j.num("sun_progress"),
+            j.optString("day_length"), j.optString("day_change"), j.text("solar_noon"), j.optInt("noon_altitude"),
+            j.text("golden_hour"), j.text("twilight_end"),
+            AstroMoon(
+                m.optString("name"), m.optDouble("illumination"), m.optDouble("age_days"), m.optBoolean("waxing"),
+                m.text("rise"), m.text("set"), m.optString("next_full"), m.optString("next_new"),
+            ),
+            j.each("days") { AstroDay(it.optString("label"), it.text("sunrise"), it.text("sunset"), it.optString("day_length"), it.optString("moon")) },
         )
     }
 

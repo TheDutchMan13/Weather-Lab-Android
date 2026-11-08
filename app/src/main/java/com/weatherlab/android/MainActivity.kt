@@ -401,6 +401,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     sub == MoreSub.RANKINGS -> RankingsPage(address, token)
                     sub == MoreSub.WIND -> WindPage(address, token)
                     sub == MoreSub.SUN -> SunPage(address, token)
+                    sub == MoreSub.ASTRONOMY -> AstronomyPage(address, token)
                     sub == MoreSub.HEAT -> HeatPage(address, token)
                     sub == MoreSub.RAIN_CAL -> RainCalendarPage(address, token)
                     sub == MoreSub.RAIN_EVENTS -> RainEventsPage(address, token)

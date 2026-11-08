@@ -177,7 +177,7 @@ fun StormPage(snapshot: Snapshot?, stormNotify: Boolean) {
 // More menu
 
 enum class MoreSub(val label: String) {
-    MENU("More"), BRIEFING("Briefing"), CHARTS("Charts"), WIND("Wind"), SUN("Sun"), HEAT("Heat safety"),
+    MENU("More"), BRIEFING("Briefing"), CHARTS("Charts"), WIND("Wind"), SUN("Sun"), ASTRONOMY("Astronomy"), HEAT("Heat safety"),
     RAIN_CAL("Rain calendar"), RAIN_EVENTS("Rain events"), LIGHTNING("Lightning"),
     DAYS("Daily"), RECORDS("Records and analysis"), RANKINGS("Rankings"),
     STATION("Sensors and Health"), WHATS_NEW("What's New"), SETTINGS("Settings"),
@@ -196,7 +196,7 @@ internal data class PageGroup(val title: String, val tabs: List<Pair<MoreSub, St
 internal val PAGE_GROUPS = listOf(
     PageGroup("Rain", listOf(MoreSub.RAIN_CAL to "Calendar", MoreSub.RAIN_EVENTS to "Events")),
     PageGroup("Past years", listOf(MoreSub.ON_THIS_DAY to "On this day", MoreSub.MILESTONES to "Milestones")),
-    PageGroup("Sun and heat", listOf(MoreSub.SUN to "Sun", MoreSub.HEAT to "Heat safety")),
+    PageGroup("Sun and heat", listOf(MoreSub.SUN to "Sun", MoreSub.ASTRONOMY to "Astronomy", MoreSub.HEAT to "Heat safety")),
     PageGroup("Storms", listOf(MoreSub.LIGHTNING to "Lightning", MoreSub.TROPICS to "Tropics", MoreSub.RADAR to "Radar")),
     PageGroup("Settings", listOf(MoreSub.SETTINGS to "This phone", MoreSub.PUSH to "Phone alerts")),
     PageGroup("About", listOf(MoreSub.ABOUT to "About", MoreSub.WHATS_NEW to "What's New")),
@@ -239,7 +239,7 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
         "Weather" to listOf(
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
             MoreItem(MoreSub.WIND, "Where the wind comes from"),
-            MoreItem(MoreSub.SUN, "UV, sunburn times and heat safety", "Sun and heat"),
+            MoreItem(MoreSub.SUN, "UV, sunburn times, the sun and moon, and heat safety", "Sun and heat"),
         ),
         "Storms" to listOf(
             MoreItem(MoreSub.LIGHTNING, "Lightning, tropical storms and radar", "Lightning, Tropics, Radar"),

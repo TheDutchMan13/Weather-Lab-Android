@@ -665,6 +665,21 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.31", "November 8, 2026",
+        listOf(
+            "Astronomy: More, Sun and heat, Astronomy shows the sun's path with where it is now, how much daylight you have and how that is changing against yesterday, solar noon and how high the sun gets, when golden hour starts and when twilight ends. The moon is drawn with its phase, how much is lit, moonrise and moonset, and the next new and full moon. A list covers the next 7 days.",
+            "Moonrise and moonset are estimates, good to a few minutes. Some days the moon doesn't rise, or doesn't set, and the page says None today.",
+            "Needs Weather Lab 0.37.57 on your PC. The PC page has the same information and covers 14 days.",
+        ),
+    ),
+    NewsEntry(
+        "0.7.30", "November 8, 2026",
+        listOf(
+            "Settings is shorter: it folds into Connection (with Move to a new phone), Notifications, On your watch, Appearance, Security and battery, History on this phone and Station. Tap a section to open it. Each shows its current setting underneath. Nothing was taken away.",
+            "Behind the scenes: Settings has its own file, and the libraries the app is built with are newer.",
+        ),
+    ),
+    NewsEntry(
         "0.7.29", "November 6, 2026",
         listOf(
             "Wallpaper colours: a third look in Settings > Appearance takes its colours from your phone's wallpaper and follows your phone's dark mode (Android 12 and newer). Warning, temperature and rain colours stay the same, so warnings always stand out. The home screen widget uses it too.",

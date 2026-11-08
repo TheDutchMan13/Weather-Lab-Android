@@ -1,5 +1,23 @@
 package com.weatherlab.android
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Watch
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -79,6 +97,7 @@ internal fun SettingsPage(
     onLockAfter: (Int) -> Unit,
 ) {
     val context = LocalContext.current
+    var watchTick by remember { mutableIntStateOf(0) }
     var lockNote by remember { mutableStateOf<String?>(null) }
     var codeText by remember { mutableStateOf("") }
     var codeNote by remember { mutableStateOf<String?>(null) }
@@ -98,8 +117,12 @@ internal fun SettingsPage(
             .padding(horizontal = 16.dp)
             .padding(bottom = 24.dp),
     ) {
-        Section("Connection")
-        Panel {
+        FoldSection(
+            Icons.Outlined.Link, "Connection",
+            if (address.isBlank() || token.isBlank()) "Not connected yet" else "Connected to $address",
+            startOpen = address.isBlank() || token.isBlank(),
+        ) {
+            Column {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "The address is shown in Weather Lab's Settings under Android app, for example 192.168.1.50:8600. " +
@@ -124,125 +147,10 @@ internal fun SettingsPage(
                     colors = ButtonDefaults.buttonColors(containerColor = C.cyan, contentColor = C.bg),
                 ) { Text("Save and connect") }
             }
-        }
-
-        Section("Notifications")
-        Panel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Storm countdown", style = T.body, color = C.text)
-                    Text(
-                        "Shows a notification while lightning is near. Checked about every 15 minutes in the background.",
-                        style = T.label, color = C.muted,
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Switch(
-                    checked = stormOn,
-                    onCheckedChange = { on ->
-                        onStorm(on)
-                        if (on && Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    },
-                    colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
-                )
-            }
-        }
-
-        WatchSettings(prefs)
-
-        Section("Security and battery")
-        Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("App lock", style = T.body, color = C.text)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppLock.CHOICES.forEach { (name, seconds) ->
-                        FilterChip(
-                            selected = lockAfter == seconds,
-                            onClick = {
-                                if (seconds >= 0 && !AppLock.deviceHasLock(context)) {
-                                    lockNote = "Set a screen lock (PIN, pattern, password or fingerprint) in your phone's settings first."
-                                } else {
-                                    lockNote = if (seconds >= 0) "Takes effect the next time the app starts." else null
-                                    onLockAfter(seconds)
-                                }
-                            },
-                            label = { Text(name, color = C.text) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = C.card,
-                                selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true, selected = lockAfter == seconds,
-                                borderColor = C.line, selectedBorderColor = C.cyan,
-                            ),
-                        )
-                    }
-                }
-                Text(
-                    "Uses your phone's own fingerprint, face, PIN, pattern or password. It also hides the app in the recent apps list.",
-                    style = T.label, color = C.muted,
-                )
-                lockNote?.let { Text(it, style = T.label, color = C.warn) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Pause refreshing in the background", style = T.body, color = C.text)
-                        Text(
-                            "Home stops updating while the app isn't on screen and catches up when you return. " +
-                                "The storm countdown above has its own switch.",
-                            style = T.label, color = C.muted,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Switch(
-                        checked = pauseBg, onCheckedChange = onPauseBg,
-                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
-                    )
-                }
-            }
-        }
-
-        Section("History on this phone")
-        Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Keep history on this phone", style = T.body, color = C.text)
-                        Text(
-                            "Saves the readings the phone receives, one every 5 minutes, so History, On this phone still shows days and a 24-hour line when your PC can't be reached. Off by default.",
-                            style = T.label, color = C.muted,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Switch(
-                        checked = keepHistory, onCheckedChange = onKeepHistory,
-                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
-                    )
-                }
-                if (keepHistory) {
-                    Text("Keep for", style = T.body, color = C.text)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(30 to "30 days", 90 to "90 days", 365 to "1 year").forEach { (days, name) ->
-                            FilterChip(
-                                selected = historyDays == days,
-                                onClick = { onHistoryDays(days) },
-                                label = { Text(name, color = C.text) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = C.card,
-                                    selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true, selected = historyDays == days,
-                                    borderColor = C.line, selectedBorderColor = C.cyan,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Section("Move to a new phone")
-        Panel {
+        
+                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = C.line)
+                Text("Move to a new phone", style = T.body, color = C.text)
+                Spacer(Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "A setup code holds your address and token. Copy it here, send it to yourself, and paste it on the new phone. " +
@@ -282,9 +190,37 @@ internal fun SettingsPage(
                 codeNote?.let { Text(it, style = T.label, color = C.muted) }
             }
         }
-
-        Section("Appearance")
-        Panel {
+        }
+        FoldSection(Icons.Outlined.Notifications, "Notifications", if (stormOn) "Storm countdown on" else "Storm countdown off", startOpen = false) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Storm countdown", style = T.body, color = C.text)
+                    Text(
+                        "Shows a notification while lightning is near. Checked about every 15 minutes in the background.",
+                        style = T.label, color = C.muted,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = stormOn,
+                    onCheckedChange = { on ->
+                        onStorm(on)
+                        if (on && Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                )
+            }
+        }
+        FoldSection(
+            Icons.Outlined.Watch, "On your watch",
+            run {
+                watchTick // read so the summary follows the switches inside
+                if (!prefs.watchAlerts) "Alerts off"
+                else if (prefs.watchQuietOn) "Alerts on · quiet ${hourText(prefs.watchQuietStart)} to ${hourText(prefs.watchQuietEnd)}"
+                else "Alerts on"
+            },
+        ) { WatchSettings(prefs) { watchTick++ } }
+        FoldSection(Icons.Outlined.Palette, "Appearance", "${scheme.label} · ${when (textScale) { 1.15f -> "large text"; 1.3f -> "largest text"; else -> "normal text" }}", startOpen = false) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Scheme.options().forEach { s ->
@@ -333,9 +269,100 @@ internal fun SettingsPage(
             )
             }
         }
+        FoldSection(Icons.Outlined.Lock, "Security and battery", "App lock ${(AppLock.CHOICES.firstOrNull { it.second == lockAfter }?.first ?: "Off").lowercase()} · ${if (pauseBg) "background refresh paused" else "refreshes in the background"}", startOpen = false) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("App lock", style = T.body, color = C.text)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppLock.CHOICES.forEach { (name, seconds) ->
+                        FilterChip(
+                            selected = lockAfter == seconds,
+                            onClick = {
+                                if (seconds >= 0 && !AppLock.deviceHasLock(context)) {
+                                    lockNote = "Set a screen lock (PIN, pattern, password or fingerprint) in your phone's settings first."
+                                } else {
+                                    lockNote = if (seconds >= 0) "Takes effect the next time the app starts." else null
+                                    onLockAfter(seconds)
+                                }
+                            },
+                            label = { Text(name, color = C.text) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = C.card,
+                                selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true, selected = lockAfter == seconds,
+                                borderColor = C.line, selectedBorderColor = C.cyan,
+                            ),
+                        )
+                    }
+                }
+                Text(
+                    "Uses your phone's own fingerprint, face, PIN, pattern or password. It also hides the app in the recent apps list.",
+                    style = T.label, color = C.muted,
+                )
+                lockNote?.let { Text(it, style = T.label, color = C.warn) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Pause refreshing in the background", style = T.body, color = C.text)
+                        Text(
+                            "Home stops updating while the app isn't on screen and catches up when you return. " +
+                                "The storm countdown above has its own switch.",
+                            style = T.label, color = C.muted,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = pauseBg, onCheckedChange = onPauseBg,
+                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                    )
+                }
+            }
+        }
+        FoldSection(Icons.Outlined.History, "History on this phone", if (!keepHistory) "Off" else "Keeping ${when (historyDays) { 30 -> "30 days"; 90 -> "90 days"; else -> "1 year" }}", startOpen = false) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Keep history on this phone", style = T.body, color = C.text)
+                        Text(
+                            "Saves the readings the phone receives, one every 5 minutes, so History, On this phone still shows days and a 24-hour line when your PC can't be reached. Off by default.",
+                            style = T.label, color = C.muted,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = keepHistory, onCheckedChange = onKeepHistory,
+                        colors = SwitchDefaults.colors(checkedTrackColor = C.cyan, checkedThumbColor = C.bg),
+                    )
+                }
+                if (keepHistory) {
+                    Text("Keep for", style = T.body, color = C.text)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(30 to "30 days", 90 to "90 days", 365 to "1 year").forEach { (days, name) ->
+                            FilterChip(
+                                selected = historyDays == days,
+                                onClick = { onHistoryDays(days) },
+                                label = { Text(name, color = C.text) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = C.card,
+                                    selectedContainerColor = C.cyan.copy(alpha = 50 / 255f),
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true, selected = historyDays == days,
+                                    borderColor = C.line, selectedBorderColor = C.cyan,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         if (snapshot != null) {
-            Section("Station")
+            FoldSection(
+                Icons.Outlined.Info, "Station",
+                listOf(snapshot.status.station.ifBlank { null }, snapshot.status.appVersion.ifBlank { null }?.let { "Weather Lab $it" },
+                    if (snapshot.current.metric) "Metric" else "US").filterNotNull().joinToString(" · "),
+            ) {
             ListPanel(
                 listOf(
                     { InfoRow("Station", snapshot.status.station.ifBlank { "--" }) },
@@ -343,6 +370,7 @@ internal fun SettingsPage(
                     { InfoRow("Units", if (snapshot.current.metric) "Metric" else "US") },
                 ),
             )
+            }
         }
     }
 }
@@ -354,9 +382,39 @@ private fun hourText(h: Int): String = when {
     else -> "${h - 12} pm"
 }
 
+/** One folding group of settings (0.7.30): a row with an icon, the title and a one-line summary; tap to open or close. */
+@Composable
+private fun FoldSection(icon: ImageVector, title: String, summary: String, startOpen: Boolean = false, content: @Composable () -> Unit) {
+    var open by rememberSaveable(title) { mutableStateOf(startOpen) }
+    Spacer(Modifier.height(10.dp))
+    Panel {
+        Column {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(S.sm))
+                    .clickable(onClickLabel = if (open) "Close $title" else "Open $title") { open = !open },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, contentDescription = null, tint = C.muted)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = T.heading, color = C.text)
+                    Text(summary, style = T.label, color = C.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Icon(
+                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (open) "Open" else "Closed", tint = C.muted,
+                )
+            }
+            AnimatedVisibility(open) { Column(Modifier.padding(top = 14.dp)) { content() } }
+        }
+    }
+}
+
 /** Settings > On your watch (0.7.28): alerts on the watch, and its quiet hours. Sent to the watch on every change. */
 @Composable
-private fun WatchSettings(prefs: Prefs) {
+private fun WatchSettings(prefs: Prefs, onChanged: () -> Unit) {
     val context = LocalContext.current
     var alertsOn by remember { mutableStateOf(prefs.watchAlerts) }
     var quietOn by remember { mutableStateOf(prefs.watchQuietOn) }
@@ -369,9 +427,9 @@ private fun WatchSettings(prefs: Prefs) {
         prefs.watchQuietEnd = end
         WatchSync.pushSettings(context)
         StormWatch.schedule(context)
+        onChanged()
     }
-    Section("On your watch")
-    Panel {
+    run {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

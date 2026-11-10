@@ -1,5 +1,11 @@
 package com.weatherlab.android
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,10 +101,13 @@ internal fun PageColumn(content: @Composable () -> Unit) {
 @Composable
 internal fun <T> Fetch(address: String, token: String, key: Any, load: (WeatherLabApi) -> T, content: @Composable (T) -> Unit) {
     var state by remember(key, address, token) { mutableStateOf<Result<T>?>(null) }
+    var savedAt by remember(key, address, token) { mutableStateOf<Long?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(key, address, token, retry) {
         state = null
-        state = withContext(Dispatchers.IO) { runCatching { load(WeatherLabApi(address, token)) } }
+        val api = WeatherLabApi(address, token, useSaved = true)
+        state = withContext(Dispatchers.IO) { runCatching { load(api) } }
+        savedAt = api.savedAt
     }
     val result = state
     when {
@@ -109,7 +118,33 @@ internal fun <T> Fetch(address: String, token: String, key: Any, load: (WeatherL
             else e?.message ?: "Couldn't reach Weather Lab."
             ErrorBox(message, onRetry = { retry++ }, title = "Couldn't load this page")
         }
-        else -> content(result.getOrThrow())
+        else -> {
+            savedAt?.let { SavedStrip(it) { retry++ } }
+            content(result.getOrThrow())
+        }
+    }
+}
+
+/** Shown above a page built from the phone's saved copy (0.7.32). */
+@Composable
+private fun SavedStrip(at: Long, onRetry: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val time = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(at))
+    val day = if (android.text.format.DateUtils.isToday(at)) "" else
+        android.text.format.DateFormat.getMediumDateFormat(context).format(java.util.Date(at)) + ", "
+    Row(
+        Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(S.sm))
+            .background(C.warn.copy(alpha = 0.16f))
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = C.warn, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Saved at $day$time. Weather Lab can't be reached.", style = T.label, color = C.text, modifier = Modifier.weight(1f))
+        TextButton(onClick = onRetry) { Text("Retry", color = C.warn) }
     }
 }
 

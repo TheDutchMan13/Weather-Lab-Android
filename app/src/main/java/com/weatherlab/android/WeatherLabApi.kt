@@ -221,7 +221,15 @@ data class PushInfo(val server: String, val topic: String)
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
 /** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET with the token in the header. */
-class WeatherLabApi(address: String, private val token: String, private val saved: Map<String, String>? = null) {
+class WeatherLabApi(
+    address: String, private val token: String, private val saved: Map<String, String>? = null,
+    /** Fall back to the copy saved on this phone when Weather Lab can't be reached (pages other than Home, 0.7.32). */
+    private val useSaved: Boolean = false,
+) {
+
+    /** When an answer came from the phone's saved copy instead of Weather Lab: the oldest save time used, else null. */
+    @Volatile var savedAt: Long? = null
+        private set
 
     private val base: String = normalise(address)
 
@@ -246,6 +254,10 @@ class WeatherLabApi(address: String, private val token: String, private val save
             text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
         } catch (e: java.io.IOException) {
             conn.disconnect()
+            if (useSaved) PageCache.load(base, path)?.let { (held, at) ->
+                synchronized(this) { savedAt = savedAt?.let { minOf(it, at) } ?: at }
+                return JSONObject(held)
+            }
             throw ApiException(networkProblem(e, base), 0)
         }
         val json = try {
@@ -257,6 +269,7 @@ class WeatherLabApi(address: String, private val token: String, private val save
             throw ApiException(json.optString("error", "Weather Lab answered with status $code."), code)
         }
         if (path in SAVED_PATHS) recorded[path] = text
+        if (useSaved) PageCache.save(base, path, text)
         return json
     }
 

@@ -679,6 +679,7 @@ private val APP_NEWS = listOf(
             "Faster and easier on the battery: Home's ten requests now go out four at a time over connections that are kept open, instead of one after another on a new connection each.",
             "In the background the app refreshes every 5 minutes instead of every minute, and straight away when you come back to it. When Weather Lab can't be reached it waits longer between tries (up to 10 minutes) instead of trying every minute.",
             "Clearer messages when Weather Lab can't be reached: whether it didn't answer in time, the address couldn't be found, or the phone isn't on the same network, and what to check.",
+            "When Weather Lab can't be reached, every page you've opened before shows its last saved copy, with a Saved at strip and Retry, instead of an empty error. Saved copies stay on this phone and aren't backed up.",
             "Screen readers now describe the touch charts and the wind rose.",
             "The app download is smaller: unused code and icons are left out.",
         ),

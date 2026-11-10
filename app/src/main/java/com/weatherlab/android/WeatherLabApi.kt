@@ -218,6 +218,26 @@ data class AirInfo(
 )
 data class PushInfo(val server: String, val topic: String)
 
+// Pages added in 0.7.34 (need Weather Lab 0.37.60).
+data class FirePart(val label: String, val value: Double, val note: String)
+data class FireDay(val day: String, val fwi: Double, val note: String)
+data class FireInfo(
+    val available: Boolean, val reason: String, val asOf: String, val daysSinceRain: Int?,
+    val parts: List<FirePart>, val forecast: List<FireDay>, val notes: String,
+)
+data class AskAnswer(val question: String, val answer: String, val examples: List<String>)
+data class StationRef(val id: String, val name: String)
+data class CompareRow(val label: String, val a: String, val b: String, val diff: String)
+data class CompareSide(val name: String, val age: String, val temps: List<Pair<Long, Double>>)
+data class StationCompare(val a: CompareSide, val b: CompareSide, val headline: String, val rows: List<CompareRow>, val tempUnit: String)
+data class WindPoint(val speed: Double?, val toward: Double?, val band: Int)
+data class WindBand(val color: String, val label: String)
+data class WindMap(
+    val available: Boolean, val reason: String, val rows: Int, val cols: Int, val points: List<WindPoint>,
+    val bands: List<WindBand>, val stationSpeed: Double?, val stationGust: Double?, val stationFrom: String?,
+    val strongest: Double?, val unit: String,
+)
+
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
 /** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET, signed with the token (0.7.33). */
@@ -520,6 +540,50 @@ class WeatherLabApi(
                 m.text("rise"), m.text("set"), m.optString("next_full"), m.optString("next_new"),
             ),
             j.each("days") { AstroDay(it.optString("label"), it.text("sunrise"), it.text("sunset"), it.optString("day_length"), it.optString("moon")) },
+        )
+    }
+
+    fun fire(): FireInfo {
+        val j = get("/api/v1/fire")
+        return FireInfo(
+            j.optBoolean("available"), j.optString("reason"), j.optString("as_of"), j.int("days_since_rain"),
+            j.each("parts") { FirePart(it.optString("label"), it.optDouble("value"), it.optString("note")) },
+            j.each("forecast") { FireDay(it.optString("day"), it.optDouble("fwi"), it.optString("note")) },
+            j.optString("notes"),
+        )
+    }
+
+    fun ask(question: String): AskAnswer {
+        val encoded = java.net.URLEncoder.encode(question.trim(), "UTF-8").replace("+", "%20")
+        val j = get("/api/v1/ask/$encoded")
+        return AskAnswer(j.optString("question"), j.optString("answer"), j.strings("examples"))
+    }
+
+    fun stations(): List<StationRef> = get("/api/v1/stations").each("stations") { StationRef(it.optString("id"), it.optString("name")) }
+
+    fun compareStations(a: String, b: String): StationCompare {
+        val j = get("/api/v1/compare/$a/$b")
+        if (j.has("error")) throw ApiException(j.optString("error"), 400)
+        fun side(o: JSONObject): CompareSide {
+            val arr = o.optJSONArray("temps") ?: org.json.JSONArray()
+            return CompareSide(o.optString("name"), o.optString("age"),
+                (0 until arr.length()).map { arr.getJSONArray(it).let { p -> p.getLong(0) to p.getDouble(1) } })
+        }
+        return StationCompare(
+            side(j.getJSONObject("a")), side(j.getJSONObject("b")), j.optString("headline"),
+            j.each("rows") { CompareRow(it.optString("label"), it.optString("a"), it.optString("b"), it.optString("diff")) },
+            j.optString("temp_unit"),
+        )
+    }
+
+    fun windMap(hours: Int): WindMap {
+        val j = get("/api/v1/windmap/$hours")
+        val st = j.optJSONObject("station") ?: JSONObject()
+        return WindMap(
+            j.optBoolean("available"), j.optString("reason"), j.optInt("rows", 5), j.optInt("cols", 7),
+            j.each("points") { WindPoint(it.num("speed"), it.num("toward"), it.optInt("band")) },
+            j.each("bands") { WindBand(it.optString("color"), it.optString("label")) },
+            st.num("speed"), st.num("gust"), st.text("from"), j.num("strongest"), j.optString("unit"),
         )
     }
 

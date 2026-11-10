@@ -674,6 +674,13 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.34", "November 10, 2026",
+        listOf(
+            "Four pages from Weather Lab on the PC: Fire weather (More, Storms), the Wind map with arrows for now and 3, 6 and 12 hours ahead (More, Wind), Ask, where you type a question such as wettest month, and Compare stations, two of your stations side by side (both in More, History).",
+            "These need Weather Lab 0.37.60 on your PC.",
+        ),
+    ),
+    NewsEntry(
         "0.7.33", "November 10, 2026",
         listOf(
             "Safer connection: the phone, widget and watch now sign each request with your token instead of sending the token itself, so it can't be read off the Wi-Fi and a captured request can't be replayed. Update Weather Lab on your PC to 0.37.59 too.",

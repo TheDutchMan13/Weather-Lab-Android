@@ -219,7 +219,8 @@ enum class MoreSub(val label: String) {
     ON_THIS_DAY("On this day"), COMPARE("Compare"), MONTH("Monthly card"), YEAR("My year"),
     MILESTONES("Season milestones"), ANOMALIES("Unusual days"), ALERT_HISTORY("Alert history"),
     FC_ACCURACY("Forecast accuracy"), EXPORT("Export"), REWIND("Replay"),
-    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"), ABOUT("About"),
+    AIRPORT("Airport"), TROPICS("Tropics"), RADAR("Radar"), FIRE("Fire weather"), ASK("Ask"),
+    COMPARE_STATIONS("Compare stations"), WIND_MAP("Wind map"), AIR("Air"), PUSH("Phone alerts"), PHONE_HISTORY("Saved on this phone"), ABOUT("About"),
 }
 
 private data class MoreItem(val sub: MoreSub, val about: String, val label: String = sub.label)
@@ -232,7 +233,8 @@ internal val PAGE_GROUPS = listOf(
     PageGroup("Rain", listOf(MoreSub.RAIN_CAL to "Calendar", MoreSub.RAIN_EVENTS to "Events")),
     PageGroup("Past years", listOf(MoreSub.ON_THIS_DAY to "On this day", MoreSub.MILESTONES to "Milestones")),
     PageGroup("Sun and heat", listOf(MoreSub.SUN to "Sun", MoreSub.ASTRONOMY to "Astronomy", MoreSub.HEAT to "Heat safety")),
-    PageGroup("Storms", listOf(MoreSub.LIGHTNING to "Lightning", MoreSub.TROPICS to "Tropics", MoreSub.RADAR to "Radar")),
+    PageGroup("Storms", listOf(MoreSub.LIGHTNING to "Lightning", MoreSub.FIRE to "Fire", MoreSub.TROPICS to "Tropics", MoreSub.RADAR to "Radar")),
+    PageGroup("Wind", listOf(MoreSub.WIND to "Wind", MoreSub.WIND_MAP to "Wind map")),
     PageGroup("Settings", listOf(MoreSub.SETTINGS to "This phone", MoreSub.PUSH to "Phone alerts")),
     PageGroup("About", listOf(MoreSub.ABOUT to "About", MoreSub.WHATS_NEW to "What's New")),
 )
@@ -270,14 +272,16 @@ fun MorePage(onOpen: (MoreSub) -> Unit) {
             MoreItem(MoreSub.ON_THIS_DAY, "On this day, first freeze, 100 degree days", "Past years"),
             MoreItem(MoreSub.ANOMALIES, "Unusual readings in the last 24 hours"),
             MoreItem(MoreSub.REWIND, "Replay any past day"),
+            MoreItem(MoreSub.ASK, "Ask a question, such as the wettest month"),
+            MoreItem(MoreSub.COMPARE_STATIONS, "Two of your stations side by side"),
         ),
         "Weather" to listOf(
             MoreItem(MoreSub.AIR, "Air quality and smoke (needs an AirNow key)"),
-            MoreItem(MoreSub.WIND, "Where the wind comes from"),
+            MoreItem(MoreSub.WIND, "Where the wind comes from, and the wind map around you"),
             MoreItem(MoreSub.SUN, "UV, sunburn times, the sun and moon, and heat safety", "Sun and heat"),
         ),
         "Storms" to listOf(
-            MoreItem(MoreSub.LIGHTNING, "Lightning, tropical storms and radar", "Lightning, Tropics, Radar"),
+            MoreItem(MoreSub.LIGHTNING, "Lightning, fire danger, tropical storms and radar", "Lightning, Fire, Tropics, Radar"),
         ),
         "Station" to listOf(
             MoreItem(MoreSub.STATION, "Data health, sensors, batteries"),

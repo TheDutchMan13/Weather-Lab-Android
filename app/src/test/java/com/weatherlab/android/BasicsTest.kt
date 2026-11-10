@@ -26,6 +26,17 @@ class BasicsTest {
     }
 
     @Test
+    fun signatureMatchesThePc() {
+        // The same vector is checked in Weather Lab's tests/test_api_signed.py.
+        val key = RequestSigner.keyFor("test-token")
+        assertEquals(
+            "f0ee0c626b7f8daaf4975dc0ca319909551b52d04209421a3ad845d08d49f06d",
+            RequestSigner.signature(key, "/api/v1/status", "1700000000", "abcdef0123456789"),
+        )
+        assertEquals(24, RequestSigner.nonce().length)
+    }
+
+    @Test
     fun networkProblemsArePlain() {
         val base = "http://192.168.1.50:8600"
         val cases = listOf(

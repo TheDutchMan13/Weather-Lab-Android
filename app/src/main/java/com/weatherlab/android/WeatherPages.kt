@@ -674,6 +674,14 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.33", "November 10, 2026",
+        listOf(
+            "Safer connection: the phone, widget and watch now sign each request with your token instead of sending the token itself, so it can't be read off the Wi-Fi and a captured request can't be replayed. Update Weather Lab on your PC to 0.37.59 too.",
+            "With an older Weather Lab on the PC the app still connects, sending the token as before, until the PC is updated. Once the PC has accepted a signed request, this phone never sends the token in the open to it again.",
+            "If the phone's clock and the PC's are more than 5 minutes apart, the app says so. Set both to update their time automatically.",
+        ),
+    ),
+    NewsEntry(
         "0.7.32", "November 10, 2026",
         listOf(
             "Faster and easier on the battery: Home's ten requests now go out four at a time over connections that are kept open, instead of one after another on a new connection each.",

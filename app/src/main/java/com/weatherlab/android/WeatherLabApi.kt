@@ -220,7 +220,7 @@ data class PushInfo(val server: String, val topic: String)
 
 class ApiException(message: String, val code: Int = 0) : Exception(message)
 
-/** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET with the token in the header. */
+/** Talks to Weather Lab's read-only API (api_version 1). Every call is a plain GET, signed with the token (0.7.33). */
 class WeatherLabApi(
     address: String, private val token: String, private val saved: Map<String, String>? = null,
     /** Fall back to the copy saved on this phone when Weather Lab can't be reached (pages other than Home, 0.7.32). */
@@ -237,29 +237,49 @@ class WeatherLabApi(
      *  Thread-safe: snapshot() asks for several answers at once (0.7.32). */
     val recorded: MutableMap<String, String> = java.util.Collections.synchronizedMap(linkedMapOf())
 
-    private fun get(path: String): JSONObject {
-        // Built from saved answers (offline mode): no network.
-        if (saved != null) return JSONObject(saved[path] ?: throw ApiException("Not saved.", 0))
+    /** One request. The connection is not disconnected after a full read, so Android reuses the socket (0.7.32). */
+    private fun send(path: String, signed: Boolean): Pair<Int, String> {
         val conn = URL(base + path).openConnection() as HttpURLConnection
-        // The connection is not disconnected afterwards: once its answer is read in full, Android keeps the socket
-        // open and the next request reuses it, which saves a new connection per request (0.7.32).
-        val code: Int
-        val text: String
         try {
             conn.connectTimeout = 5000
             conn.readTimeout = 8000
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            code = conn.responseCode
+            if (signed) RequestSigner.sign(conn, token, path) else conn.setRequestProperty("Authorization", "Bearer $token")
+            val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            return code to stream?.bufferedReader()?.use { it.readText() }.orEmpty()
         } catch (e: java.io.IOException) {
             conn.disconnect()
+            throw e
+        }
+    }
+
+    private fun get(path: String): JSONObject {
+        // Built from saved answers (offline mode): no network.
+        if (saved != null) return JSONObject(saved[path] ?: throw ApiException("Not saved.", 0))
+        var signed = !SignMemory.oldPc(base)
+        var answer: Pair<Int, String>
+        try {
+            answer = send(path, signed)
+            // A Weather Lab older than 0.37.59 doesn't know signed requests and answers 401. Ask once with the token
+            // instead, but only until this phone has seen that PC accept a signed request: after that, a 401 is never
+            // a reason to send the token in the open.
+            if (signed && answer.first == 401 && !SignMemory.signedOk(base)) {
+                val plain = send(path, false)
+                if (plain.first != 401) {
+                    SignMemory.markOldPc(base)
+                    answer = plain
+                    signed = false
+                }
+            }
+        } catch (e: java.io.IOException) {
             if (useSaved) PageCache.load(base, path)?.let { (held, at) ->
                 synchronized(this) { savedAt = savedAt?.let { minOf(it, at) } ?: at }
                 return JSONObject(held)
             }
             throw ApiException(networkProblem(e, base), 0)
         }
+        val (code, text) = answer
+        if (signed && code in 200..299) SignMemory.markSignedOk(base)
         val json = try {
             if (text.isBlank()) JSONObject() else JSONObject(text)
         } catch (e: org.json.JSONException) {

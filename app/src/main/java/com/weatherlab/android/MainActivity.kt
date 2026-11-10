@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         prefs = Prefs(this)
         PageCache.init(this)
+        SignMemory.init(this)
         WatchSync.push(this, prefs.address, prefs.token)
         // With App lock on, a fresh start is locked. Rotating the phone or resizing the window rebuilds the screen;
         // that keeps the lock as it was instead of asking again (0.7.26).

@@ -143,6 +143,7 @@ class WatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     override suspend fun doWork(): Result {
         val prefs = Prefs(applicationContext)
         if (prefs.address.isBlank() || prefs.token.isBlank()) return Result.success()
+        SignMemory.init(applicationContext)
         try {
             val api = WeatherLabApi(prefs.address, prefs.token)
             val storm = withContext(Dispatchers.IO) { api.storm() }

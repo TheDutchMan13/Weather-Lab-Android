@@ -139,23 +139,47 @@ object WatchApi {
         return if (withScheme.substringAfter("://").contains(":")) withScheme else "$withScheme:8600"
     }
 
-    private fun get(base: String, token: String, path: String): String {
+    // PCs seen accepting signed requests in this run, and older PCs that only take the token (0.7.33).
+    private val signedOk = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val oldPcs = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    private fun send(base: String, token: String, path: String, signed: Boolean): Pair<Int, String> {
         val conn = URL(base + path).openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 6000
             conn.readTimeout = 8000
-            conn.setRequestProperty("Authorization", "Bearer $token")
+            if (signed) RequestSigner.sign(conn, token, path) else conn.setRequestProperty("Authorization", "Bearer $token")
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) {
-                val msg = runCatching { JSONObject(text).optString("error") }.getOrNull()
-                throw WatchApiException(msg?.takeIf { it.isNotBlank() } ?: "Weather Lab answered with status $code.")
-            }
-            return text
+            return code to stream?.bufferedReader()?.use { it.readText() }.orEmpty()
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun get(base: String, token: String, path: String): String {
+        var signed = base !in oldPcs
+        var (code, text) = send(base, token, path, signed)
+        // Weather Lab before 0.37.59 doesn't know signed requests. Ask once with the token, unless this PC has already
+        // accepted a signed request in this run.
+        if (signed && code == 401 && base !in signedOk) {
+            val plain = send(base, token, path, false)
+            if (plain.first != 401) {
+                oldPcs.add(base)
+                code = plain.first
+                text = plain.second
+                signed = false
+            }
+        }
+        if (code !in 200..299) {
+            val msg = runCatching { JSONObject(text).optString("error") }.getOrNull()
+            throw WatchApiException(msg?.takeIf { it.isNotBlank() } ?: "Weather Lab answered with status $code.")
+        }
+        if (signed) {
+            signedOk.add(base)
+            oldPcs.remove(base)
+        }
+        return text
     }
 
     /** Reads the given endpoints as raw JSON text. "current" and "today" must work; the others may fail on their own. */

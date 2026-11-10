@@ -44,7 +44,7 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build the debug APK, run the tests and build the shrunk check APKs
-        run: gradle :app:assembleDebug :wear:assembleDebug :app:testDebugUnitTest :app:assembleCheck :wear:assembleCheck --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: gradle :app:assembleDebug :wear:assembleDebug :app:testDebugUnitTest :wear:testDebugUnitTest :app:assembleCheck :wear:assembleCheck --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
 
       # If the build fails, show the compiler's complaints as short notes on the run, so they are easy to find.
       - name: Show build errors

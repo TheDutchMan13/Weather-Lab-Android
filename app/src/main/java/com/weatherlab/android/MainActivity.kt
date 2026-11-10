@@ -87,6 +87,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -227,6 +228,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
 
     // Loads on entry, when the settings change, when Refresh is tapped, and then once a minute.
     LaunchedEffect(address, token, reloadCount, stormOn) {
+        var failures = 0
         while (address.isNotBlank() && token.isNotBlank()) {
             // With "Pause in the background" on, wait here until the app is on screen again.
             if (pauseBg) AppState.foreground.first { it }
@@ -241,6 +243,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 }
                 fetchedAt = System.currentTimeMillis()
                 error = null
+                failures = 0
                 StormWatch.update(context, snapshot?.storm, stormOn)
                 snapshot?.let { s ->
                     withContext(Dispatchers.IO) {
@@ -249,6 +252,7 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                     }
                 }
             } catch (e: Exception) {
+                failures++
                 error = e.message ?: "Couldn't reach Weather Lab."
                 // Nothing in memory yet (the app was just opened): fall back to the last snapshot saved on the phone.
                 if (snapshot == null) {
@@ -259,7 +263,9 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
                 }
             }
             loading = false
-            delay(60_000)
+            // Coming back on screen during a long background wait refreshes straight away.
+            val onScreen = AppState.foreground.value
+            withTimeoutOrNull(refreshWait(failures, onScreen)) { AppState.foreground.first { it && !onScreen } }
         }
     }
 
@@ -473,6 +479,15 @@ fun WeatherLabApp(prefs: Prefs, scheme: Scheme, textScale: Float, onTextScale: (
         }
     }
 }
+/** How long to wait before the next refresh (0.7.32): a minute on screen, five in the background, and longer after
+ *  each failed try (2, 4, 8 minutes, at most 10), so a PC that's off doesn't keep the phone busy. Refresh still
+ *  works at any time. */
+internal fun refreshWait(failures: Int, onScreen: Boolean): Long {
+    val base = if (onScreen) 60_000L else 300_000L
+    if (failures <= 0) return base
+    return minOf(600_000L, maxOf(base, 60_000L shl minOf(failures, 4)))
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Live
 

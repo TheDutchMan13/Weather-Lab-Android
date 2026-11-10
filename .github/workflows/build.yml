@@ -43,8 +43,8 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build the debug APK
-        run: gradle :app:assembleDebug :wear:assembleDebug --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Build the debug APK, run the tests and build the shrunk check APKs
+        run: gradle :app:assembleDebug :wear:assembleDebug :app:testDebugUnitTest :app:assembleCheck :wear:assembleCheck --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
 
       # If the build fails, show the compiler's complaints as short notes on the run, so they are easy to find.
       - name: Show build errors
@@ -66,4 +66,14 @@ jobs:
         with:
           name: WeatherLabWear-debug
           path: wear/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Shrunk like a release, signed with the debug key, installs next to the real app. Try these before tagging.
+      - name: Keep the check APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeatherLab-check
+          path: |
+            app/build/outputs/apk/check/*.apk
+            wear/build/outputs/apk/check/*.apk
           if-no-files-found: error

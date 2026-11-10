@@ -225,29 +225,39 @@ class WeatherLabApi(address: String, private val token: String, private val save
 
     private val base: String = normalise(address)
 
-    /** The raw answer to each request that worked, by path, so the phone can keep the last snapshot for offline use. */
-    val recorded = linkedMapOf<String, String>()
+    /** The raw answer to each request that worked, by path, so the phone can keep the last snapshot for offline use.
+     *  Thread-safe: snapshot() asks for several answers at once (0.7.32). */
+    val recorded: MutableMap<String, String> = java.util.Collections.synchronizedMap(linkedMapOf())
 
     private fun get(path: String): JSONObject {
         // Built from saved answers (offline mode): no network.
         if (saved != null) return JSONObject(saved[path] ?: throw ApiException("Not saved.", 0))
         val conn = URL(base + path).openConnection() as HttpURLConnection
+        // The connection is not disconnected afterwards: once its answer is read in full, Android keeps the socket
+        // open and the next request reuses it, which saves a new connection per request (0.7.32).
+        val code: Int
+        val text: String
         try {
             conn.connectTimeout = 5000
             conn.readTimeout = 8000
             conn.setRequestProperty("Authorization", "Bearer $token")
-            val code = conn.responseCode
+            code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val json = if (text.isBlank()) JSONObject() else JSONObject(text)
-            if (code !in 200..299) {
-                throw ApiException(json.optString("error", "Weather Lab answered with status $code."), code)
-            }
-            if (path in SAVED_PATHS) recorded[path] = text
-            return json
-        } finally {
+            text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        } catch (e: java.io.IOException) {
             conn.disconnect()
+            throw ApiException(networkProblem(e, base), 0)
         }
+        val json = try {
+            if (text.isBlank()) JSONObject() else JSONObject(text)
+        } catch (e: org.json.JSONException) {
+            throw ApiException("Weather Lab sent an answer this app couldn't read. Update Weather Lab on your PC and this app to the newest versions.", code)
+        }
+        if (code !in 200..299) {
+            throw ApiException(json.optString("error", "Weather Lab answered with status $code."), code)
+        }
+        if (path in SAVED_PATHS) recorded[path] = text
+        return json
     }
 
     fun status(): Status {
@@ -737,13 +747,66 @@ class WeatherLabApi(address: String, private val token: String, private val save
         null
     }
 
-    fun snapshot(): Snapshot = Snapshot(
-        status(), current(), today(), alerts(),
-        history = optional { history() }, week = optional { week() }, storm = optional { storm() },
-        tiles = optional { tiles() }, airport = optional { airport() }, home = optional { home() },
-    )
+    /** Everything Home needs. The ten requests go out four at a time on reused connections instead of one after
+     *  another (0.7.32), so a refresh takes about a third of the time. */
+    fun snapshot(): Snapshot {
+        if (saved != null) return Snapshot(
+            status(), current(), today(), alerts(),
+            history = optional { history() }, week = optional { week() }, storm = optional { storm() },
+            tiles = optional { tiles() }, airport = optional { airport() }, home = optional { home() },
+        )
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        try {
+            fun <T> later(block: () -> T) = pool.submit(java.util.concurrent.Callable { block() })
+            fun <T> java.util.concurrent.Future<T>.need(): T = try {
+                get()
+            } catch (e: java.util.concurrent.ExecutionException) {
+                throw e.cause ?: e
+            }
+            fun <T> java.util.concurrent.Future<T>.maybe(): T? = try {
+                get()
+            } catch (e: Exception) {
+                null
+            }
+            val status = later { status() }
+            val current = later { current() }
+            val today = later { today() }
+            val alerts = later { alerts() }
+            val history = later { history() }
+            val week = later { week() }
+            val storm = later { storm() }
+            val tiles = later { tiles() }
+            val airport = later { airport() }
+            val home = later { home() }
+            return Snapshot(
+                status.need(), current.need(), today.need(), alerts.need(),
+                history = history.maybe(), week = week.maybe(), storm = storm.maybe(),
+                tiles = tiles.maybe(), airport = airport.maybe(), home = home.maybe(),
+            )
+        } finally {
+            pool.shutdownNow()
+        }
+    }
 
     companion object {
+        /** A failed connection in plain words, with what to check (0.7.32). */
+        fun networkProblem(e: java.io.IOException, base: String): String {
+            val where = base.substringAfter("://")
+            return when (e) {
+                is java.net.SocketTimeoutException ->
+                    "Weather Lab at $where didn't answer in time. Check that the PC is on and Weather Lab is open."
+                is java.net.UnknownHostException ->
+                    "The address $where couldn't be found. Check it in Settings, Connection."
+                is java.net.NoRouteToHostException ->
+                    "This phone can't reach $where. Check that it's on the same Wi-Fi as the PC, or on Tailscale."
+                is java.net.ConnectException ->
+                    "Nothing answered at $where. Check that Weather Lab is open on the PC, that Let phones and devices connect is on, and that the port is right."
+                is javax.net.ssl.SSLException ->
+                    "The connection to $where failed. Use the address starting with http:// from Weather Lab's Settings."
+                else -> "Couldn't reach Weather Lab at $where. Check the PC and the Wi-Fi, then try again."
+            }
+        }
+
         /** The requests snapshot() makes; their answers are what the phone keeps for offline use. */
         private val SAVED_PATHS = setOf(
             "/api/v1/status", "/api/v1/current", "/api/v1/today", "/api/v1/alerts", "/api/v1/history", "/api/v1/week",

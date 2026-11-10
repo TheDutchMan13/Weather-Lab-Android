@@ -12,8 +12,8 @@ android {
         applicationId = "com.weatherlab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "0.7.31"
+        versionCode = 41
+        versionName = "0.7.32"
     }
 
     // Release signing. The key never lives in the repo: the release workflow supplies it through these settings.
@@ -32,8 +32,20 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrinking (0.7.32): unused code, icons and resources are left out of the release APK.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
+        // A shrunk build signed with the debug key, made by GitHub on every push, to try before a release. It
+        // installs next to the real app (".check"), and its phone and watch apps still pair with each other.
+        create("check") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".check"
+            versionNameSuffix = "-check"
+            matchingFallbacks += listOf("release")
         }
     }
 
@@ -59,4 +71,5 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    testImplementation("junit:junit:4.13.2")
 }

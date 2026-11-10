@@ -1,6 +1,8 @@
 // Weather pages: touch charts, rankings, rain, wind and lightning, sun and heat, station, What's New and the Forecast tab.
 package com.weatherlab.android
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -104,10 +106,14 @@ fun TouchLine(values: List<Double>, labels: List<String>, unit: String, height: 
         style = T.label, color = C.muted,
     )
     Spacer(Modifier.height(6.dp))
+    // What a screen reader says for the whole chart (0.7.32): the range and the latest value.
+    val said = "Line chart of ${labels.first()} to ${labels.last()}. Lowest ${one(values.min())}$unit, " +
+        "highest ${one(values.max())}$unit, latest ${one(values.last())}$unit."
     Canvas(
         Modifier
             .fillMaxWidth()
             .height(height)
+            .semantics { contentDescription = said }
             .pointerInput(values) { detectTapGestures { o -> picked = indexAt(o.x, size.width, n) } }
             .pointerInput(values) {
                 detectHorizontalDragGestures(
@@ -149,10 +155,12 @@ fun TouchBars(values: List<Double?>, labels: List<String>, unit: String, height:
     )
     Text("Touch a bar to read it.", style = T.label, color = C.muted)
     Spacer(Modifier.height(6.dp))
+    val said = "Bar chart of ${labels.firstOrNull().orEmpty()} to ${labels.lastOrNull().orEmpty()}. $topLabel: ${withUnit(top, unit, decimals)}."
     Canvas(
         Modifier
             .fillMaxWidth()
             .height(height)
+            .semantics { contentDescription = said }
             .pointerInput(values) { detectTapGestures { o -> picked = ((o.x / size.width) * n).toInt().coerceIn(0, n - 1) } }
             .pointerInput(values) {
                 detectHorizontalDragGestures(
@@ -382,7 +390,8 @@ internal fun WindRoseChart(w: WindRose) {
     val fill = C.cyan
     val maxPct = w.directions.maxOfOrNull { it.percent }?.takeIf { it > 0 } ?: 1.0
     Column {
-        Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
+        val said = "Wind rose. " + (w.dominant?.let { "The wind came most often from $it." } ?: "No wind direction yet.")
+        Canvas(Modifier.fillMaxWidth().aspectRatio(1f).semantics { contentDescription = said }) {
             val cx = size.width / 2f
             val cy = size.height / 2f
             val radius = min(cx, cy) - 18.dp.toPx()
@@ -664,6 +673,16 @@ fun StationPage(address: String, token: String) {
 // What's New
 
 private val APP_NEWS = listOf(
+    NewsEntry(
+        "0.7.32", "November 10, 2026",
+        listOf(
+            "Faster and easier on the battery: Home's ten requests now go out four at a time over connections that are kept open, instead of one after another on a new connection each.",
+            "In the background the app refreshes every 5 minutes instead of every minute, and straight away when you come back to it. When Weather Lab can't be reached it waits longer between tries (up to 10 minutes) instead of trying every minute.",
+            "Clearer messages when Weather Lab can't be reached: whether it didn't answer in time, the address couldn't be found, or the phone isn't on the same network, and what to check.",
+            "Screen readers now describe the touch charts and the wind rose.",
+            "The app download is smaller: unused code and icons are left out.",
+        ),
+    ),
     NewsEntry(
         "0.7.31", "November 8, 2026",
         listOf(
@@ -949,7 +968,7 @@ private fun FoldedNews(entries: List<NewsEntry>, key: String) {
     if (older.isEmpty()) return
     Panel {
         Row(
-            Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp),
+            Modifier.fillMaxWidth().clickable(onClickLabel = if (open) "Hide older versions" else "Show older versions") { open = !open }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Older versions (${older.size})", style = T.body, color = C.text, modifier = Modifier.weight(1f))

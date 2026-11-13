@@ -73,7 +73,7 @@ fun WelcomePage(onStart: () -> Unit, hour: Int = LocalTime.now().hour) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            drawRect(Brush.verticalGradient(s.stops.map { it.first to col(it.second) }))
+            drawRect(Brush.verticalGradient(*s.stops.map { it.first to col(it.second) }.toTypedArray()))
             for (i in 0 until s.stars) {
                 val x = (i * 211 % 1000) / 1000f * w
                 val y = ((i * 97) % 420) / 1000f * h + 12f

@@ -674,6 +674,12 @@ fun StationPage(address: String, token: String) {
 
 private val APP_NEWS = listOf(
     NewsEntry(
+        "0.7.35", "November 13, 2026",
+        listOf(
+            "A welcome screen for first-time setup, with a sky that matches the time of day. It shows only until the phone is connected to Weather Lab on your PC, then takes you to the connection fields.",
+        ),
+    ),
+    NewsEntry(
         "0.7.34", "November 10, 2026",
         listOf(
             "Four pages from Weather Lab on the PC: Fire weather (More, Storms), the Wind map with arrows for now and 3, 6 and 12 hours ahead (More, Wind), Ask, where you type a question such as wettest month, and Compare stations, two of your stations side by side (both in More, History).",

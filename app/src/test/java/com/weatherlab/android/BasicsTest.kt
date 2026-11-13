@@ -50,4 +50,17 @@ class BasicsTest {
         }
         assertTrue(WeatherLabApi.networkProblem(java.net.SocketTimeoutException(), base).contains("didn't answer in time"))
     }
+
+    @Test
+    fun welcomeSkyFollowsTheHour() {
+        assertEquals(DayPeriod.NIGHT, dayPeriod(4))
+        assertEquals(DayPeriod.MORNING, dayPeriod(5))
+        assertEquals(DayPeriod.MORNING, dayPeriod(11))
+        assertEquals(DayPeriod.AFTERNOON, dayPeriod(12))
+        assertEquals(DayPeriod.AFTERNOON, dayPeriod(16))
+        assertEquals(DayPeriod.EVENING, dayPeriod(17))
+        assertEquals(DayPeriod.EVENING, dayPeriod(20))
+        assertEquals(DayPeriod.NIGHT, dayPeriod(21))
+        assertEquals("Good morning.", dayPeriod(8).greeting)
+    }
 }

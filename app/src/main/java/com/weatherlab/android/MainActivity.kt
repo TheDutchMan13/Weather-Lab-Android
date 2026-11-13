@@ -129,8 +129,11 @@ class MainActivity : ComponentActivity() {
                     c.isAppearanceLightStatusBars = light
                     c.isAppearanceLightNavigationBars = light
                 }
+                var welcomed by rememberSaveable { mutableStateOf(false) }
                 if (locked) {
                     LockScreen { locked = false }
+                } else if (!welcomed && (prefs.address.isBlank() || prefs.token.isBlank())) {
+                    WelcomePage(onStart = { welcomed = true })
                 } else {
                     WeatherLabApp(prefs, scheme, textScale, onTextScale = {
                         textScale = it
